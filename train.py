@@ -249,7 +249,7 @@ def setup_validation(config):
     """
     # Default validation file paths
     val_ct_filepath = getattr(config, 'val_ct_filepath', 'data/ct_volumes.h5')
-    val_label_path = getattr(config, 'val_label_path', 'data/valid_predicted_labels.csv')
+    val_label_path = getattr(config, 'val_label_path', 'data/ct_rate/valid_predicted_labels.csv')
     val_batch_size = getattr(config, 'val_batch_size', 4)
     
     # Check if validation files exist

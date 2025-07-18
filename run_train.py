@@ -15,7 +15,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     # Data paths
     parser.add_argument('--ct_filepath', type=str, default='data/ct_volumes.h5')
-    parser.add_argument('--txt_filepath', type=str, default='data/train_reports.csv')
+    parser.add_argument('--txt_filepath', type=str, default='data/ct_rate/train_reports.csv')
     
     # Training parameters
     parser.add_argument('--batch_size', type=int, default=32)
@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument('--do_validate', action='store_true')
     parser.add_argument('--valid_interval', type=int, default=200)
     parser.add_argument('--val_ct_filepath', type=str, default='data/ct_volumes.h5')
-    parser.add_argument('--val_label_path', type=str, default='data/valid_predicted_labels.csv')
+    parser.add_argument('--val_label_path', type=str, default='data/ct_rate/valid_predicted_labels.csv')
     parser.add_argument('--val_batch_size', type=int, default=16)
     
     # Logging and saving
