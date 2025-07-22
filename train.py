@@ -49,7 +49,7 @@ class CTDataset(data.Dataset):
         if type(txt) == type(float("nan")):  # capture the case of empty sections
             txt = " "
 
-        img = torch.from_numpy(img)  # torch, (1, D, H, W)
+        img = torch.from_numpy(img).float()  # torch, (1, D, H, W) - ensure float32
         if self.transform:
             img = self.transform(img)
         sample = {'img': img, 'txt': txt}
@@ -313,7 +313,7 @@ def setup_validation(config):
                 h5_idx = self.valid_indices[idx]
                 img = self.img_dset[h5_idx]  # (D, H, W)
                 img = np.expand_dims(img, axis=0)  # Add channel: (1, D, H, W)
-                img = torch.from_numpy(img)
+                img = torch.from_numpy(img).float()
                 return {'img': img, 'idx': idx}  # Return validation index for label mapping
         
         val_dataset = CTValidationDataset(val_ct_filepath, volume_names)
