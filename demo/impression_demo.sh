@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=Impression_Demo
-#SBATCH --output=demo/impression_demo_%j.out
-#SBATCH --error=demo/impression_demo_%j.err
+#SBATCH --output=impression_demo_%j.out
+#SBATCH --error=impression_demo_%j.err
 #SBATCH --time=2:00:00
 #SBATCH --nodes=1
-#SBATCH --gpus-per-node=l40
+#SBATCH --gpus-per-node=a100
 #SBATCH --cpus-per-gpu=4
-#SBATCH --mem-per-gpu=48G
+#SBATCH --mem-per-gpu=80G
 #SBATCH --partition=ai
 
 # Load CUDA module
@@ -31,7 +31,7 @@ cd $REPO_PATH
 python impression_section.py \
     --target_file "$TARGET_FILE" \
     --output_file "$OUTPUT_FILE" \
-    --num_examples 3
+    --num_examples 8
 
 echo "Demo impression generation completed!"
 echo "Updated CSV saved to: ${OUTPUT_FILE%.json}.csv"
