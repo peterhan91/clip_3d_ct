@@ -1,13 +1,12 @@
 #!/bin/bash
-# vim: ft=slurm
 #SBATCH --job-name=Impression_Demo
 #SBATCH --output=demo/impression_demo_%j.out
 #SBATCH --error=demo/impression_demo_%j.err
-#SBATCH --time=0:30:00
+#SBATCH --time=2:00:00
 #SBATCH --nodes=1
-#SBATCH --gpus-per-node=a100:2
+#SBATCH --gpus-per-node=l40
 #SBATCH --cpus-per-gpu=4
-#SBATCH --mem-per-gpu=160G
+#SBATCH --mem-per-gpu=48G
 #SBATCH --partition=ai
 
 # Load CUDA module
