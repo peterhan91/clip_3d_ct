@@ -155,7 +155,7 @@ if __name__ == "__main__":
     # Each call to sample_few_shot_examples will use different examples
     
     # Load all complete pairs from train_reports.csv
-    train_csv_path = '/cbica/projects/CXR/data/ct_rate/train_reports.csv'
+    train_csv_path = '/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/train_reports.csv'
     complete_pairs_df = load_complete_pairs(train_csv_path)
     
     print(f"Loaded {len(complete_pairs_df)} complete pairs from training data.")

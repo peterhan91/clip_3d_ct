@@ -17,12 +17,12 @@ source /cbica/projects/CXR/miniconda3/etc/profile.d/conda.sh
 conda activate ctproject
 
 # Set paths
-REPO_PATH="/cbica/home/hanti/codes/clip_3d_ct"
-TARGET_FILE="/cbica/projects/CXR/data/ct_rate/validation_reports.csv"
-OUTPUT_FILE="/cbica/home/hanti/codes/clip_3d_ct/demo/validation_reports_demo.json"
+REPO_PATH="/cbica/projects/CXR/codes/clip_3d_ct"
+TARGET_FILE="/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/validation_reports.csv"
+OUTPUT_FILE="/cbica/projects/CXR/codes/clip_3d_ct/demo/validation_reports_demo.json"
 
 # Create demo output directory
-mkdir -p /cbica/home/hanti/codes/clip_3d_ct/demo
+mkdir -p /cbica/projects/CXR/codes/clip_3d_ct/demo
 
 # Change to repository directory
 cd $REPO_PATH
