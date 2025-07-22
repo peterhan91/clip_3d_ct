@@ -136,7 +136,7 @@ def ct_to_hdf5(ct_paths: List[Union[str, Path]], metadata_df: pd.DataFrame = Non
         )
         
         # Process in smaller batches to avoid OOM
-        batch_size = min(num_workers * 2, 16)  # Limit batch size
+        batch_size = min(num_workers, 8)  # Further reduce batch size
         print(f"Processing {len(ct_paths)} CT volumes in batches of {batch_size}...")
         
         for batch_start in tqdm(range(0, dset_size, batch_size), desc="Batches"):
@@ -170,9 +170,15 @@ def ct_to_hdf5(ct_paths: List[Union[str, Path]], metadata_df: pd.DataFrame = Non
                     ct_dset[global_idx] = vol
                     # Explicitly delete volume from memory
                     del vol
+                # Set result to None to free memory immediately
+                batch_results[batch_idx] = None
             
             # Clear batch results to free memory
             del batch_results
+            
+            # Force garbage collection after each batch
+            import gc
+            gc.collect()
                 
     print(f"{len(failed_volumes)} / {len(ct_paths)} volumes failed to be added to h5.")
     if failed_volumes:
