@@ -123,7 +123,7 @@ def process_single_ct(args):
 def ct_to_hdf5(ct_paths: List[Union[str, Path]], metadata_df: pd.DataFrame = None, out_filepath: str = "ct_volumes.h5", target_shape=(160, 224, 224), num_workers=4, slide_b2u=True): 
     """
     Convert directory of CT scans into a .h5 file given paths to all 
-    CT volumes and their metadata. Uses multi-threading for faster processing.
+    CT volumes and their metadata. Uses streaming writes to avoid OOM.
     """
     dset_size = len(ct_paths)
     failed_volumes = []
@@ -135,33 +135,44 @@ def ct_to_hdf5(ct_paths: List[Union[str, Path]], metadata_df: pd.DataFrame = Non
             dtype='uint8',
         )
         
-        # Prepare arguments for parallel processing
-        process_args = [(idx, path, metadata_df, target_shape, slide_b2u) for idx, path in enumerate(ct_paths)]
+        # Process in smaller batches to avoid OOM
+        batch_size = min(num_workers * 2, 16)  # Limit batch size
+        print(f"Processing {len(ct_paths)} CT volumes in batches of {batch_size}...")
         
-        # Process volumes in parallel
-        print(f"Processing {len(ct_paths)} CT volumes using {num_workers} workers...")
-        with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            # Submit all tasks
-            future_to_idx = {executor.submit(process_single_ct, arg): arg[0] for arg in process_args}
+        for batch_start in tqdm(range(0, dset_size, batch_size), desc="Batches"):
+            batch_end = min(batch_start + batch_size, dset_size)
+            batch_paths = ct_paths[batch_start:batch_end]
             
-            # Collect results with progress bar
-            results = [None] * dset_size  # Pre-allocate to maintain order
+            # Prepare arguments for this batch
+            process_args = [(idx + batch_start, path, metadata_df, target_shape, slide_b2u) 
+                          for idx, path in enumerate(batch_paths)]
             
-            for future in tqdm(as_completed(future_to_idx), total=len(future_to_idx), desc="Processing"):
-                idx, vol, fname, error = future.result()
+            # Process batch in parallel
+            batch_results = [None] * len(batch_paths)
+            with ThreadPoolExecutor(max_workers=num_workers) as executor:
+                future_to_idx = {executor.submit(process_single_ct, arg): arg[0] - batch_start 
+                               for arg in process_args}
                 
-                if error is not None:
-                    failed_volumes.append((ct_paths[idx], error))
-                    results[idx] = None
-                else:
-                    results[idx] = (vol, fname)
-        
-        # Write results to HDF5 in order
-        print("Writing processed volumes to HDF5...")
-        for idx, result in enumerate(tqdm(results, desc="Writing")):
-            if result is not None:
-                vol, fname = result
-                ct_dset[idx] = vol
+                for future in as_completed(future_to_idx):
+                    batch_idx = future_to_idx[future]
+                    global_idx, vol, fname, error = future.result()
+                    
+                    if error is not None:
+                        failed_volumes.append((ct_paths[global_idx], error))
+                        batch_results[batch_idx] = None
+                    else:
+                        batch_results[batch_idx] = (global_idx, vol, fname)
+            
+            # Write batch results immediately to HDF5
+            for batch_idx, result in enumerate(batch_results):
+                if result is not None:
+                    global_idx, vol, fname = result
+                    ct_dset[global_idx] = vol
+                    # Explicitly delete volume from memory
+                    del vol
+                
+                # Clear batch results to free memory
+                del batch_results
                 
     print(f"{len(failed_volumes)} / {len(ct_paths)} volumes failed to be added to h5.")
     if failed_volumes:
