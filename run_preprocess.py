@@ -211,7 +211,7 @@ if __name__ == "__main__":
     # Get CT paths
     if args.split:
         # Use pre-generated CSV paths for specific split
-        csv_path = f"/cbica/home/hanti/codes/clip_3d_ct/run_scripts/ctrate_{args.split}_paths.csv"
+        csv_path = f"/cbica/projects/CXR/codes/clip_3d_ct/run_scripts/ctrate_{args.split}_paths.csv"
         if os.path.exists(csv_path):
             print(f"Using pre-generated paths from: {csv_path}")
             ct_paths = get_ct_paths_list(csv_path)
