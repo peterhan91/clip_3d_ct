@@ -1,0 +1,54 @@
+# Large data files
+*.h5
+*.hdf5
+
+# Generated visualizations
+*.mp4
+*.png
+*.jpg
+*.jpeg
+
+# Model checkpoints
+*.pt
+*.pth
+checkpoints/
+
+# Data directories
+data/
+demo/*/videos/
+demo/*/grids/
+demo/*_visualizations/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+*.out
+*.err
+processing_*.txt
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Conda/pip
+.conda/
+pip-log.txt
+
+# Temporary files
+*.tmp
+*.temp
+temp_*

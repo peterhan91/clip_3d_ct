@@ -38,8 +38,8 @@ def read_and_preprocess_ct(file_path, metadata_row=None, hu_range=(-1000, 1000))
     
     # Apply DICOM rescale if metadata is available
     if metadata_row is not None:
-        slope = float(metadata_row['RescaleSlope'])
-        intercept = float(metadata_row['RescaleIntercept'])
+        slope = 1.0 # float(metadata_row['RescaleSlope'])
+        intercept = 0.0 # float(metadata_row['RescaleIntercept'])
         data = data * slope + intercept
     else:
         # Use default rescale values: slope=1, intercept=0
@@ -189,7 +189,7 @@ def parse_args():
     parser.add_argument('--ct_data_path', default='data/ct_volumes/', help="Directory where CT volume data is stored.")
     parser.add_argument('--target_shape', nargs=3, type=int, default=[160, 224, 224], help="Target shape for CT volumes (D H W).")
     parser.add_argument('--num_workers', type=int, default=4, help="Number of worker threads for parallel processing.")
-    parser.add_argument('--slide_b2u', type=bool, default=True, help="Slice ordering from bottom to up (default: True).")
+    parser.add_argument('--slide_b2u', type=bool, default=False, help="Slice ordering from bottom to up (default: True).")
     args = parser.parse_args()
     return args
 

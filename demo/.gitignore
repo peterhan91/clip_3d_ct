@@ -1,0 +1,37 @@
+# Large data files
+*.h5
+*.hdf5
+
+# Generated visualizations
+*.mp4
+*.png
+*.jpg
+*.jpeg
+
+# Processing outputs
+*/videos/
+*/grids/
+*_visualizations/
+
+# Temporary files
+*.tmp
+*.temp
+temp_*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+processing_*.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
