@@ -4,9 +4,9 @@
 #SBATCH --error=impression_demo_%j.err
 #SBATCH --time=2:00:00
 #SBATCH --nodes=1
-#SBATCH --gpus-per-node=l40
+#SBATCH --gpus-per-node=a100
 #SBATCH --cpus-per-gpu=4
-#SBATCH --mem-per-gpu=48G
+#SBATCH --mem-per-gpu=80G
 #SBATCH --partition=ai
 
 # Load CUDA module
