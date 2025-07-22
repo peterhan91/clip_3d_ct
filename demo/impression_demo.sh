@@ -8,7 +8,7 @@
 #SBATCH --gpus-per-node=a100:2
 #SBATCH --cpus-per-gpu=4
 #SBATCH --mem-per-gpu=160G
-#SBATCH --partition=aishort
+#SBATCH --partition=ai
 
 # Load CUDA module
 module load cuda/12.4
