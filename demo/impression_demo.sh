@@ -35,5 +35,4 @@ python impression_section.py \
     --num_examples 3
 
 echo "Demo impression generation completed!"
-echo "Output saved to: $OUTPUT_FILE"
 echo "Updated CSV saved to: ${OUTPUT_FILE%.json}.csv"
