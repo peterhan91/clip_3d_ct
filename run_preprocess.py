@@ -170,9 +170,9 @@ def ct_to_hdf5(ct_paths: List[Union[str, Path]], metadata_df: pd.DataFrame = Non
                     ct_dset[global_idx] = vol
                     # Explicitly delete volume from memory
                     del vol
-                
-                # Clear batch results to free memory
-                del batch_results
+            
+            # Clear batch results to free memory
+            del batch_results
                 
     print(f"{len(failed_volumes)} / {len(ct_paths)} volumes failed to be added to h5.")
     if failed_volumes:
