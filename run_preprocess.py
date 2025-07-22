@@ -135,8 +135,8 @@ def ct_to_hdf5(ct_paths: List[Union[str, Path]], metadata_df: pd.DataFrame = Non
             dtype='uint8',
         )
         
-        # Process in smaller batches to avoid OOM
-        batch_size = min(num_workers, 8)  # Further reduce batch size
+        # Process in batches - scale with available memory
+        batch_size = min(num_workers * 2, 32)  # Allow larger batches with more memory
         print(f"Processing {len(ct_paths)} CT volumes in batches of {batch_size}...")
         
         for batch_start in tqdm(range(0, dset_size, batch_size), desc="Batches"):
