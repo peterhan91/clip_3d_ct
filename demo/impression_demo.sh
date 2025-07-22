@@ -5,7 +5,7 @@
 #SBATCH --error=demo/impression_demo_%j.err
 #SBATCH --time=0:30:00
 #SBATCH --nodes=1
-#SBATCH --gpus-per-node=a100_80gb:1
+#SBATCH --gpus-per-node=a100:1
 #SBATCH --cpus-per-gpu=4
 #SBATCH --mem-per-gpu=80G
 #SBATCH --partition=ai
