@@ -23,6 +23,7 @@ demo/*_visualizations/
 __pycache__/
 *.pyc
 *.pyo
+*.ipynb
 
 # Logs
 *.log

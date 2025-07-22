@@ -190,6 +190,7 @@ def parse_args():
     parser.add_argument('--target_shape', nargs=3, type=int, default=[160, 224, 224], help="Target shape for CT volumes (D H W).")
     parser.add_argument('--num_workers', type=int, default=4, help="Number of worker threads for parallel processing.")
     parser.add_argument('--slide_b2u', type=bool, default=False, help="Slice ordering from bottom to up (default: True).")
+    parser.add_argument('--split', type=str, choices=['train', 'valid', 'test'], help="Process specific split using pre-generated CSV paths.")
     args = parser.parse_args()
     return args
 
@@ -207,7 +208,19 @@ if __name__ == "__main__":
             print(f"Warning: Metadata file not found: {args.metadata_path}")
         print("Processing without metadata - using default rescale values")
     
-    # Write CT Volume HDF5 File
-    get_ct_path_csv(args.csv_out_path, args.ct_data_path)
-    ct_paths = get_ct_paths_list(args.csv_out_path)
+    # Get CT paths
+    if args.split:
+        # Use pre-generated CSV paths for specific split
+        csv_path = f"/cbica/home/hanti/codes/clip_3d_ct/run_scripts/ctrate_{args.split}_paths.csv"
+        if os.path.exists(csv_path):
+            print(f"Using pre-generated paths from: {csv_path}")
+            ct_paths = get_ct_paths_list(csv_path)
+        else:
+            raise FileNotFoundError(f"Split CSV not found: {csv_path}. Run generate_split_csvs.py first.")
+    else:
+        # Legacy mode: scan directory and create CSV
+        get_ct_path_csv(args.csv_out_path, args.ct_data_path)
+        ct_paths = get_ct_paths_list(args.csv_out_path)
+    
+    print(f"Processing {len(ct_paths)} CT volumes...")
     ct_to_hdf5(ct_paths, metadata_df, args.ct_out_path, target_shape=tuple(args.target_shape), num_workers=args.num_workers, slide_b2u=args.slide_b2u)
