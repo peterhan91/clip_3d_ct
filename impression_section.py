@@ -3,9 +3,9 @@ import json
 import pandas as pd
 import random
 import argparse
-from vllm import LLM
+from transformers import pipeline
+import torch
 from tqdm import tqdm
-from vllm.sampling_params import SamplingParams
 
 
 def load_complete_pairs(train_csv_path):
@@ -77,10 +77,13 @@ def process_target_file(target_csv_path, complete_pairs_df, num_examples, output
         df.to_csv(output_path.replace('.json', '.csv'), index=False)
         return
     
-    # Initialize the LLM only if needed
-    model_name = "mistralai/Ministral-8B-Instruct-2410"
-    sampling_params = SamplingParams(max_tokens=8192)
-    llm = LLM(model=model_name, tokenizer_mode="mistral", config_format="mistral", load_format="mistral")
+    # Initialize the transformers pipeline only if needed
+    pipe = pipeline(
+        "text-generation",
+        model="google/medgemma-4b-it",
+        torch_dtype=torch.bfloat16,
+        device="cuda",
+    )
     
     # Create a copy of the dataframe to modify
     result_df = df.copy()
@@ -99,16 +102,22 @@ def process_target_file(target_csv_path, complete_pairs_df, num_examples, output
         # Create the prompt with few-shot examples
         prompt = create_few_shot_prompt(findings, few_shot_examples)
         
-        messages = [
-            {
-                "role": "user", 
-                "content": prompt
-            }
-        ]
-        
         try:
-            outputs = llm.chat(messages, sampling_params=sampling_params)
-            generated_impression = outputs[0].outputs[0].text.strip()
+            # Create messages in the format expected by medgemma
+            messages = [
+                {
+                    "role": "system",
+                    "content": [{"type": "text", "text": "You are an expert radiologist."}]
+                },
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": prompt}]
+                }
+            ]
+            
+            # Generate using transformers pipeline
+            output = pipe(text=messages, max_new_tokens=512)
+            generated_impression = output[0]["generated_text"][-1]["content"].strip()
             
             # Update the dataframe with the generated impression
             result_df.at[idx, 'Impressions_EN'] = generated_impression
