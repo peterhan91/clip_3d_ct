@@ -1,13 +1,12 @@
 #!/bin/bash
-# vim: ft=slurm
 #SBATCH --job-name=Impression_Generation
 #SBATCH --output=impression_generation_%j.out
 #SBATCH --error=impression_generation_%j.err
 #SBATCH --time=4:00:00
 #SBATCH --nodes=1
-#SBATCH --gpus-per-node=a100:1
+#SBATCH --gpus-per-node=a100
 #SBATCH --cpus-per-gpu=8
-#SBATCH --mem-per-gpu=80G
+#SBATCH --mem-per-gpu=160G
 #SBATCH --partition=ai
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=hanti@pennmedicine.upenn.edu
