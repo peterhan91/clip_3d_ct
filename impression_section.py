@@ -116,7 +116,7 @@ def process_target_file(target_csv_path, complete_pairs_df, num_examples, output
             ]
             
             # Generate using transformers pipeline
-            output = pipe(text=messages, max_new_tokens=512)
+            output = pipe(text=messages, max_new_tokens=8192)
             generated_impression = output[0]["generated_text"][-1]["content"].strip()
             
             # Update the dataframe with the generated impression
