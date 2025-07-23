@@ -80,7 +80,7 @@ def process_target_file(target_csv_path, complete_pairs_df, num_examples, output
     # Initialize the transformers pipeline only if needed
     pipe = pipeline(
         "text-generation",
-        model="google/medgemma-27b-text-it",
+        model="google/medgemma-4b-it",
         torch_dtype=torch.bfloat16,
         device="cuda",
         model_kwargs={
@@ -110,11 +110,11 @@ def process_target_file(target_csv_path, complete_pairs_df, num_examples, output
             messages = [
                 {
                     "role": "system",
-                    "content": "You are a helpful medical assistant and expert radiologist."
+                    "content": [{"type": "text", "text": "You are a helpful medical assistant and expert radiologist."}]
                 },
                 {
                     "role": "user",
-                    "content": prompt
+                    "content": [{"type": "text", "text": prompt}]
                 }
             ]
             
