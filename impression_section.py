@@ -51,7 +51,7 @@ def create_few_shot_prompt(findings_text, few_shot_examples):
     
     return prompt
 
-def process_target_file(target_csv_path, complete_pairs_df, num_examples, output_path):
+def process_target_file(target_csv_path, complete_pairs_df, num_examples, output_path, max_new_tokens=8192):
     """Process the entire CSV file - keep existing impressions, generate new ones for empty/missing cases."""
     # Read the target data
     df = pd.read_csv(target_csv_path)
@@ -80,9 +80,13 @@ def process_target_file(target_csv_path, complete_pairs_df, num_examples, output
     # Initialize the transformers pipeline only if needed
     pipe = pipeline(
         "text-generation",
-        model="google/medgemma-4b-it",
+        model="google/medgemma-27b-text-it",
         torch_dtype=torch.bfloat16,
         device="cuda",
+        model_kwargs={
+            "low_cpu_mem_usage": True,
+            "torch_dtype": torch.bfloat16,
+        }
     )
     
     # Create a copy of the dataframe to modify
@@ -107,16 +111,16 @@ def process_target_file(target_csv_path, complete_pairs_df, num_examples, output
             messages = [
                 {
                     "role": "system",
-                    "content": [{"type": "text", "text": "You are an expert radiologist."}]
+                    "content": "You are a helpful medical assistant and expert radiologist."
                 },
                 {
                     "role": "user",
-                    "content": [{"type": "text", "text": prompt}]
+                    "content": prompt
                 }
             ]
             
             # Generate using transformers pipeline
-            output = pipe(messages, max_new_tokens=8192)
+            output = pipe(messages, max_new_tokens=max_new_tokens)
             generated_impression = output[0]["generated_text"][-1]["content"].strip()
             
             # Update the dataframe with the generated impression
@@ -157,6 +161,8 @@ if __name__ == "__main__":
                         help='Output file for generation log (CSV will be saved with .csv extension)')
     parser.add_argument('--num_examples', type=int, default=8,
                         help='Number of few-shot examples to use')
+    parser.add_argument('--max_new_tokens', type=int, default=8192,
+                        help='Maximum number of new tokens to generate')
     
     args = parser.parse_args()
     
@@ -171,5 +177,5 @@ if __name__ == "__main__":
     print(f"Will resample {args.num_examples} examples for each incomplete case.")
     
     # Process the target file
-    process_target_file(args.target_file, complete_pairs_df, args.num_examples, args.output_file)
+    process_target_file(args.target_file, complete_pairs_df, args.num_examples, args.output_file, args.max_new_tokens)
         
