@@ -286,35 +286,20 @@ def setup_validation(config):
             """Validation dataset for CT volumes only."""
             def __init__(self, img_path, volume_names):
                 self.img_dset = h5py.File(img_path, 'r')['ct_volumes']
-                self.volume_names = volume_names
+                self.num_volumes = len(volume_names)
                 
-                # Get volume names from h5 file
-                with h5py.File(img_path, 'r') as f:
-                    h5_volume_names = [name.decode('utf-8') if isinstance(name, bytes) else name 
-                                     for name in f['volume_names'][:]]
-                
-                # Create mapping from validation volume names to h5 indices
-                self.name_to_idx = {name: idx for idx, name in enumerate(h5_volume_names)}
-                
-                # Find valid indices for validation volumes
-                self.valid_indices = []
-                for name in volume_names:
-                    if name in self.name_to_idx:
-                        self.valid_indices.append(self.name_to_idx[name])
-                    else:
-                        print(f"Warning: Volume {name} not found in CT file")
-                
-                print(f"Found {len(self.valid_indices)}/{len(volume_names)} validation volumes in CT file")
+                # Simple positional alignment - assume HDF5 and CSV are in same order
+                print(f"Validation dataset: {self.img_dset.shape[0]} volumes in HDF5, {self.num_volumes} in labels CSV")
+                assert self.img_dset.shape[0] >= self.num_volumes, f"HDF5 has fewer volumes ({self.img_dset.shape[0]}) than labels ({self.num_volumes})"
                 
             def __len__(self):
-                return len(self.valid_indices)
+                return self.num_volumes
             
             def __getitem__(self, idx):
-                h5_idx = self.valid_indices[idx]
-                img = self.img_dset[h5_idx]  # (D, H, W)
+                img = self.img_dset[idx]  # (D, H, W)
                 img = np.expand_dims(img, axis=0)  # Add channel: (1, D, H, W)
                 img = torch.from_numpy(img).float()
-                return {'img': img, 'idx': idx}  # Return validation index for label mapping
+                return {'img': img, 'idx': idx}
         
         val_dataset = CTValidationDataset(val_ct_filepath, volume_names)
         input_resolution = 224  # Fixed for CT processing

@@ -15,10 +15,10 @@ def parse_args():
     parser = argparse.ArgumentParser()
     # Data paths
     parser.add_argument('--ct_filepath', type=str, default='/cbica/projects/CXR/data_p/ctrate_train.h5')
-    parser.add_argument('--txt_filepath', type=str, default='/cbica/home/hanti/codes/clip_3d_ct/data/ct_rate/train_reports.csv')
+    parser.add_argument('--txt_filepath', type=str, default='/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/train_reports.csv')
     
     # Training parameters
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--epochs', type=int, default=40)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--weight_decay', type=float, default=0.2)
@@ -33,10 +33,10 @@ def parse_args():
     
     # Validation
     parser.add_argument('--do_validate', action='store_true')
-    parser.add_argument('--valid_interval', type=int, default=200)
+    parser.add_argument('--valid_interval', type=int, default=400)
     parser.add_argument('--val_ct_filepath', type=str, default='/cbica/projects/CXR/data_p/ctrate_valid.h5')
-    parser.add_argument('--val_label_path', type=str, default='/cbica/home/hanti/codes/clip_3d_ct/data/ct_rate/valid_predicted_labels.csv')
-    parser.add_argument('--val_batch_size', type=int, default=16)
+    parser.add_argument('--val_label_path', type=str, default='/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/valid_predicted_labels.csv')
+    parser.add_argument('--val_batch_size', type=int, default=4)
     
     # Logging and saving
     parser.add_argument('--save_dir', type=str, default="checkpoints/")
@@ -171,14 +171,12 @@ def run_validation(model, device, config, step):
     
     # Extract image features
     all_img_feats = []
-    val_indices = []  # Track validation indices for label alignment
     with torch.no_grad():
         for data in tqdm(val_loader, desc="Validation"):
             imgs = data['img'].to(device)
             feats = model_for_val.encode_image(imgs)
             feats /= feats.norm(dim=-1, keepdim=True)
             all_img_feats.append(feats.cpu())
-            val_indices.extend(data['idx'].tolist())  # Collect validation indices
     
     # Compute predictions
     img_feats_cat = torch.cat(all_img_feats).to(device)
@@ -187,13 +185,8 @@ def run_validation(model, device, config, step):
     probs = torch.exp(logits_pos) / (torch.exp(logits_pos) + torch.exp(logits_neg))
     y_pred_val = probs.cpu().numpy()
     
-    # Ensure proper alignment between predictions and ground truth
-    # val_indices maps validation batch index to original validation set index
-    if len(val_indices) != len(y_pred_val):
-        print(f"Warning: Mismatch in validation indices {len(val_indices)} vs predictions {len(y_pred_val)}")
-    
-    # Use only the corresponding ground truth labels for evaluated samples
-    y_true_val_aligned = y_true_val[val_indices] if len(val_indices) == len(y_pred_val) else y_true_val[:len(y_pred_val)]
+    # Use ground truth labels with same positional alignment
+    y_true_val_aligned = y_true_val[:len(y_pred_val)]
     
     # Evaluate
     val_results_df = evaluate(y_pred_val, y_true_val_aligned, val_labels)
