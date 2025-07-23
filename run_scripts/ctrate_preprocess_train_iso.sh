@@ -2,9 +2,9 @@
 #SBATCH --job-name=CTRate_Preprocess_Train_Iso
 #SBATCH --output=ctrate_train_iso_preprocess_%j.out
 #SBATCH --error=ctrate_train_iso_preprocess_%j.err
-#SBATCH --time=12:00:00
+#SBATCH --time=48:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=32
 #SBATCH --mem=128G
 #SBATCH --partition=long
 #SBATCH --mail-type=END,FAIL
@@ -27,7 +27,7 @@ python run_preprocess.py \
     --split train \
     --ct_out_path "$OUTPUT_PATH" \
     --target_shape 160 224 224 \
-    --num_workers 16 \
+    --num_workers 32 \
     --iso_spacing
 
 echo "CT-RATE training isotropic spacing preprocessing completed successfully!"
