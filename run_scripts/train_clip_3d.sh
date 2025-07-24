@@ -5,7 +5,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=a100:1
-#SBATCH --cpus-per-gpu=16
+#SBATCH --cpus-per-gpu=8
 #SBATCH --mem-per-gpu=128G
 #SBATCH --partition=ai
 #SBATCH --mail-type=END,FAIL
@@ -44,7 +44,7 @@ python run_train.py \
     --test_ct_filepath "$TEST_CT_PATH" \
     --test_label_path "$TEST_LABEL_PATH" \
     --save_dir "$SAVE_DIR" \
-    --batch_size 8 \
+    --batch_size 4 \
     --epochs 40 \
     --lr 1e-4 \
     --weight_decay 0.2 \
@@ -64,7 +64,7 @@ python run_train.py \
     --patience 3 \
     --min_delta 0.001 \
     --test_after_training \
-    --num_workers 16
+    --num_workers 8
 
 echo "Training completed!"
 echo "Model saved to: $SAVE_DIR"
