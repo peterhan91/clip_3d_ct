@@ -5,7 +5,8 @@
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=a100:1
-#SBATCH --cpus-per-gpu=8
+#SBATCH --cpus-per-gpu=16
+#SBATCH --mem=128G
 #SBATCH --mem-per-gpu=80G
 #SBATCH --partition=ai
 #SBATCH --mail-type=END,FAIL
@@ -63,7 +64,8 @@ python run_train.py \
     --early_stopping \
     --patience 3 \
     --min_delta 0.001 \
-    --test_after_training
+    --test_after_training \
+    --num_workers 16
 
 echo "Training completed!"
 echo "Model saved to: $SAVE_DIR"

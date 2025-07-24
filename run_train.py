@@ -54,6 +54,7 @@ def parse_args():
     parser.add_argument('--save_dir', type=str, default="checkpoints/")
     parser.add_argument('--log_interval', type=int, default=10)
     parser.add_argument('--seed', type=int, default=1234)
+    parser.add_argument('--num_workers', type=int, default=2, help='Number of DataLoader workers for training')
     
     # DDP parameters
     parser.add_argument('--use_ddp', action='store_true')
@@ -85,7 +86,7 @@ def create_model_and_data(config, rank=0):
     config.pretrained = False  # Always False for CT
     
     model, data_loader, device, criterion, optimizer = make(
-        config, config.ct_filepath, config.txt_filepath
+        config, config.ct_filepath, config.txt_filepath, num_workers=config.num_workers
     )
     
     # Wrap with DDP if needed
@@ -171,7 +172,7 @@ def train_epoch(model, loader, device, criterion, optimizer, scheduler, scaler, 
 def run_validation(model, device, config, step, epoch, validation_state):
     """Run validation, log results, and check for early stopping."""
     model_for_val = model.module if hasattr(model, 'module') else model
-    val_loader, y_true_val, val_labels, val_templates, _ = setup_validation(config)
+    val_loader, y_true_val, val_labels, val_templates, _ = setup_validation(config, num_workers=config.num_workers)
     
     if val_loader is None:
         return False
@@ -316,7 +317,7 @@ def setup_test_dataset(test_ct_filepath, test_label_path, labels, config):
         test_dataset,
         batch_size=config.test_batch_size,
         shuffle=False,
-        num_workers=2,
+        num_workers=config.num_workers,
         pin_memory=True
     )
     
@@ -455,7 +456,7 @@ def main():
             
             # Create validation log file with header (get labels from validation setup)
             if config.do_validate:
-                _, _, val_labels, _, _ = setup_validation(config)
+                _, _, val_labels, _, _ = setup_validation(config, num_workers=config.num_workers)
                 if val_labels is not None:
                     # Create header with all disease labels
                     disease_headers = [f"{label}_AUC" for label in val_labels]

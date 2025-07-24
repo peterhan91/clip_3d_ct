@@ -58,7 +58,7 @@ class CTDataset(data.Dataset):
         return sample
 
 
-def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=False): 
+def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=False, num_workers=2): 
     if torch.cuda.is_available():  
         dev = "cuda:0" 
         cuda_available = True
@@ -84,11 +84,11 @@ def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=
     if verbose: 
         for i in range(len(torch_dset)):
             sample = torch_dset[i]
-            print(i, sample['img'].size(), sample['txt'])  # (1, D, H, W)
+            print(i, sample['img'].size(), sample['txt'])  # (3, D, H, W)
             if i == 3:
                 break
     
-    loader_params = {'batch_size':batch_size, 'shuffle': True, 'num_workers': 0}
+    loader_params = {'batch_size':batch_size, 'shuffle': True, 'num_workers': num_workers}
     data_loader = data.DataLoader(torch_dset, **loader_params)
     return data_loader, device
     
@@ -234,7 +234,7 @@ def preprocess_text(texts, model):
     return result
 
 
-def setup_validation(config):
+def setup_validation(config, num_workers=2):
     """
     FUNCTION: setup_validation
     ---------------------------------
@@ -307,7 +307,7 @@ def setup_validation(config):
             val_dataset,
             batch_size=val_batch_size,
             shuffle=False,  # No need to shuffle for validation
-            num_workers=2,  # Adjust based on your system
+            num_workers=num_workers,
             pin_memory=True
         )
 
@@ -319,7 +319,7 @@ def setup_validation(config):
         return None, None, None, None, None
 
 
-def make(config, ct_filepath, txt_filepath, model_path=None): 
+def make(config, ct_filepath, txt_filepath, model_path=None, num_workers=2): 
     '''
     FUNCTION: make
     ---------------------------------
@@ -331,7 +331,7 @@ def make(config, ct_filepath, txt_filepath, model_path=None):
         * txt_filepath - string, filepath to corresponding text reports
         * model_path - string, filepath to previously trained model
     '''
-    data_loader, device = load_data(ct_filepath, txt_filepath, batch_size=config.batch_size, column=config.column)
+    data_loader, device = load_data(ct_filepath, txt_filepath, batch_size=config.batch_size, column=config.column, num_workers=num_workers)
     model = load_clip(model_path=model_path, context_length=config.context_length)
     model.to(device)
     print('Model on Device.')
