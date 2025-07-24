@@ -325,7 +325,7 @@ def parse_args():
     parser.add_argument('--num_workers', type=int, default=4, help="Number of worker threads for parallel processing.")
     parser.add_argument('--slide_b2u', type=bool, default=False, help="Slice ordering from bottom to up (default: True).")
     parser.add_argument('--split', type=str, choices=['train', 'valid', 'test'], help="Process specific split using pre-generated CSV paths.")
-    parser.add_argument('--dataset', type=str, choices=['ctrate', 'inspect'], default='ctrate', help="Dataset type: ctrate or inspect (default: ctrate).")
+    parser.add_argument('--dataset', type=str, choices=['ctrate', 'inspect', 'merlin'], default='ctrate', help="Dataset type: ctrate, inspect, or merlin (default: ctrate).")
     parser.add_argument('--iso_spacing', action='store_true', help="Enable isotropic spacing processing: resample to 1.5mm in-plane, 3mm out-of-plane. Output file will have '_iso_spacing' suffix.")
     args = parser.parse_args()
     return args
@@ -352,7 +352,7 @@ if __name__ == "__main__":
             print(f"Using pre-generated paths from: {csv_path}")
             ct_paths = get_ct_paths_list(csv_path)
         else:
-            raise FileNotFoundError(f"Split CSV not found: {csv_path}. Run generate_split_csvs.py (for ctrate) or generate_inspect_split_csvs.py (for inspect) first.")
+            raise FileNotFoundError(f"Split CSV not found: {csv_path}. Run generate_split_csvs.py (for ctrate), generate_inspect_split_csvs.py (for inspect), or generate_merlin_split_csvs.py (for merlin) first.")
     else:
         # Legacy mode: scan directory and create CSV
         get_ct_path_csv(args.csv_out_path, args.ct_data_path)
