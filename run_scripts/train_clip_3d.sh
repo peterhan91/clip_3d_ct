@@ -6,8 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=a100:1
 #SBATCH --cpus-per-gpu=16
-#SBATCH --mem=128G
-#SBATCH --mem-per-gpu=80G
+#SBATCH --mem-per-gpu=128G
 #SBATCH --partition=ai
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=tianyu.han@pennmedicine.upenn.edu
