@@ -174,7 +174,7 @@ def load_clip(model_path=None, context_length=77,
             range_vals = slice_max - slice_min  # (B*D, 1)
             safe_range = torch.where(range_vals < 1e-5, torch.ones_like(range_vals), range_vals)
             x_norm = (x_flat - slice_min) / safe_range
-            x = x_norm.view(x.shape[0], 3, H, W)  # (B*D, 3, H, W)
+            x = x_norm.view(B*D, 3, H, W)  # (B*D, 3, H, W) - use calculated dimensions
             
             # Apply ImageNet normalization (DINOv2 expectation)
             imagenet_mean = torch.tensor([0.485, 0.456, 0.406], device=x.device).view(1, 3, 1, 1)
@@ -296,6 +296,7 @@ def setup_validation(config, num_workers=2):
             def __getitem__(self, idx):
                 img = self.img_dset[idx]  # (D, H, W)
                 img = np.expand_dims(img, axis=0)  # Add channel: (1, D, H, W)
+                img = np.repeat(img, 3, axis=0)  # Repeat for RGB: (3, D, H, W)
                 img = torch.from_numpy(img).float()
                 return {'img': img, 'idx': idx}
         
