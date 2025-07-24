@@ -45,11 +45,12 @@ class CTDataset(data.Dataset):
             
         img = self.img_dset[idx]  # np array, (D, H, W) - preprocessed HU values
         img = np.expand_dims(img, axis=0)  # Add channel dimension: (1, D, H, W)
+        img = np.repeat(img, 3, axis=0)  # Repeat for RGB: (3, D, H, W)
         txt = self.txt_dset[idx]  # python str
         if type(txt) == type(float("nan")):  # capture the case of empty sections
             txt = " "
 
-        img = torch.from_numpy(img).float()  # torch, (1, D, H, W) - ensure float32
+        img = torch.from_numpy(img).float()  # torch, (3, D, H, W) - ensure float32
         if self.transform:
             img = self.transform(img)
         sample = {'img': img, 'txt': txt}
@@ -159,24 +160,21 @@ def load_clip(model_path=None, context_length=77,
             self.cls_token = nn.Parameter(torch.randn(1, 1, backbone_dim))
             self.projection = nn.Linear(backbone_dim, output_dim)
             
-        def forward(self, x):  # x: (B, 1, D, H, W) - CT volumes
+        def forward(self, x):  # x: (B, 3, D, H, W) - CT volumes
             B, _, D, H, W = x.shape
             
-            # Reshape for slice processing: (B, D, H, W) -> (B*D, H, W)
-            x = rearrange(x, 'b c d h w -> (b d) h w')
+            # Reshape for slice processing: (B, 3, D, H, W) -> (B*D, 3, H, W)
+            x = rearrange(x, 'b c d h w -> (b d) c h w')
             
-            # Vectorized slice-by-slice normalization to [0, 1]
-            x_flat = x.view(x.shape[0], -1)  # (B*D, H*W)
+            # Vectorized slice-by-slice normalization to [0, 1] - all 3 channels are identical
+            x_flat = x.view(x.shape[0], -1)  # (B*D, 3*H*W)
             slice_min = x_flat.min(dim=1, keepdim=True)[0]  # (B*D, 1)
             slice_max = x_flat.max(dim=1, keepdim=True)[0]  # (B*D, 1)
             # Use torch.where for cleaner vectorization:
             range_vals = slice_max - slice_min  # (B*D, 1)
             safe_range = torch.where(range_vals < 1e-5, torch.ones_like(range_vals), range_vals)
             x_norm = (x_flat - slice_min) / safe_range
-            x = x_norm.view(x.shape[0], H, W)  # (B*D, H, W)
-            
-            # Convert to RGB and apply ImageNet normalization
-            x = x.unsqueeze(1).repeat(1, 3, 1, 1)  # (B*D, 3, H, W)
+            x = x_norm.view(x.shape[0], 3, H, W)  # (B*D, 3, H, W)
             
             # Apply ImageNet normalization (DINOv2 expectation)
             imagenet_mean = torch.tensor([0.485, 0.456, 0.406], device=x.device).view(1, 3, 1, 1)

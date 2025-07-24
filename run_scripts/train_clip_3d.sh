@@ -44,7 +44,7 @@ python run_train.py \
     --test_ct_filepath "$TEST_CT_PATH" \
     --test_label_path "$TEST_LABEL_PATH" \
     --save_dir "$SAVE_DIR" \
-    --batch_size 4 \
+    --batch_size 8 \
     --epochs 40 \
     --lr 1e-4 \
     --weight_decay 0.2 \
