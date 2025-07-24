@@ -12,7 +12,7 @@
 #SBATCH --mail-user=tianyu.han@pennmedicine.upenn.edu
 
 # Load CUDA module
-module load cuda/12.4
+module load cuda/11.8
 
 # Load conda environment
 source /cbica/projects/CXR/miniconda3/etc/profile.d/conda.sh
