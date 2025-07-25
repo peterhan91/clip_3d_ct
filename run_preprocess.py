@@ -353,6 +353,10 @@ if __name__ == "__main__":
             ct_paths = get_ct_paths_list(csv_path)
         else:
             raise FileNotFoundError(f"Split CSV not found: {csv_path}. Run generate_split_csvs.py (for ctrate), generate_inspect_split_csvs.py (for inspect), or generate_merlin_split_csvs.py (for merlin) first.")
+    elif args.ct_data_path.endswith('.csv'):
+        # Handle CSV file directly provided in --ct_data_path
+        print(f"Using CSV file provided in --ct_data_path: {args.ct_data_path}")
+        ct_paths = get_ct_paths_list(args.ct_data_path)
     else:
         # Legacy mode: scan directory and create CSV
         get_ct_path_csv(args.csv_out_path, args.ct_data_path)
