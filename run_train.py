@@ -72,27 +72,32 @@ def setup_ddp(backend='nccl'):
     dist.init_process_group(backend)
     rank = dist.get_rank()
     world_size = dist.get_world_size()
-    torch.cuda.set_device(rank)
-    print(f"DDP initialized: rank {rank}/{world_size}")
-    return rank, world_size
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    
+    # Use local_rank for GPU assignment
+    torch.cuda.set_device(local_rank)
+    print(f"DDP initialized: rank {rank}/{world_size}, local_rank {local_rank}")
+    
+    return local_rank, rank, world_size
 
 def cleanup_ddp():
     """Clean up DDP."""
     dist.destroy_process_group()
 
-def create_model_and_data(config, rank=0):
+def create_model_and_data(config, local_rank=0, rank=0, world_size=1):
     """Create model and data loader using the make function from train.py"""
     # Override config for CT processing
     config.pretrained = False  # Always False for CT
     
-    model, data_loader, device, criterion, optimizer = make(
-        config, config.ct_filepath, config.txt_filepath, num_workers=config.num_workers
+    model, data_loader, device, criterion, optimizer, sampler = make(
+        config, config.ct_filepath, config.txt_filepath, num_workers=config.num_workers, 
+        local_rank=local_rank, rank=rank, use_ddp=config.use_ddp, world_size=world_size
     )
     
     # Wrap with DDP if needed
     if config.use_ddp:
-        model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
-        print(f'Model wrapped with DDP on rank {rank}')
+        model = DDP(model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
+        print(f'Model wrapped with DDP on local_rank {local_rank}')
     
     # Create scheduler
     total_steps = config.epochs * len(data_loader)
@@ -154,9 +159,13 @@ def train_epoch(model, loader, device, criterion, optimizer, scheduler, scaler, 
         
         # Validation
         early_stop_flag = False
-        if (rank == 0 and config.do_validate and 
-            batch_ct % config.valid_interval == 0):
-            early_stop_flag = run_validation(model, device, config, batch_ct, epoch, validation_state)
+        if config.do_validate and batch_ct % config.valid_interval == 0:
+            # Synchronize all processes before validation
+            if config.use_ddp:
+                dist.barrier()
+            
+            if rank == 0:
+                early_stop_flag = run_validation(model, device, config, batch_ct, epoch, validation_state)
         
         # Broadcast early stopping decision across processes
         if config.use_ddp:
@@ -166,6 +175,14 @@ def train_epoch(model, loader, device, criterion, optimizer, scheduler, scaler, 
         
         if early_stop_flag:
             return batch_ct, example_ct, True
+    
+    # Handle any remaining gradients in accumulation buffer
+    if batch_ct % config.grad_accum_steps != 0:
+        scaler.step(optimizer)
+        scaler.update()
+        optimizer.zero_grad()
+        if scheduler:
+            scheduler.step()
     
     return batch_ct, example_ct, False
 
@@ -430,13 +447,13 @@ def main():
     torch.backends.cudnn.benchmark = True
     
     if config.use_ddp:
-        rank, world_size = setup_ddp(config.backend)
+        local_rank, rank, world_size = setup_ddp(config.backend)
     else:
-        rank, world_size = 0, 1
+        local_rank, rank, world_size = 0, 0, 1
     
     try:
         # Create model and data
-        model, data_loader, device, criterion, optimizer, scheduler, scaler = create_model_and_data(config, rank)
+        model, data_loader, device, criterion, optimizer, scheduler, scaler = create_model_and_data(config, local_rank, rank, world_size)
         
         # Create save directory and validation state (only on rank 0)
         validation_state = None

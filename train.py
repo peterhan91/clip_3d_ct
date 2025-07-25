@@ -58,11 +58,11 @@ class CTDataset(data.Dataset):
         return sample
 
 
-def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=False, num_workers=2): 
+def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=False, num_workers=2, local_rank=0, rank=0, use_ddp=False, world_size=1): 
     if torch.cuda.is_available():  
-        dev = "cuda:0" 
+        dev = f"cuda:{local_rank}" 
         cuda_available = True
-        print('Using CUDA.')
+        print(f'Using CUDA device {local_rank}.')
     else:  
         dev = "cpu"  
         cuda_available = False
@@ -88,13 +88,34 @@ def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=
             if i == 3:
                 break
     
-    loader_params = {'batch_size':batch_size, 'shuffle': True, 'num_workers': num_workers}
+    # Create sampler for DDP if needed
+    if use_ddp:
+        from torch.utils.data.distributed import DistributedSampler
+        sampler = DistributedSampler(torch_dset, num_replicas=world_size, rank=rank, shuffle=True)
+        loader_params = {
+            'batch_size': batch_size, 
+            'sampler': sampler, 
+            'num_workers': num_workers,
+            'pin_memory': True,
+            'drop_last': True,  # Important for DDP to avoid uneven last batch
+            'persistent_workers': True if num_workers > 0 else False
+        }
+    else:
+        sampler = None
+        loader_params = {
+            'batch_size': batch_size, 
+            'shuffle': True, 
+            'num_workers': num_workers,
+            'pin_memory': True,
+            'persistent_workers': True if num_workers > 0 else False
+        }
+    
     data_loader = data.DataLoader(torch_dset, **loader_params)
-    return data_loader, device
+    return data_loader, device, sampler
     
 
 def load_clip(model_path=None, context_length=77, 
-              dinov2_model_name="dinov2_vitb14", freeze_dinov2=False):
+              dinov2_model_name="dinov2_vitb14", freeze_dinov2=False, local_rank=0):
     '''
     FUNCTION: load_clip
     -------------------------------
@@ -124,7 +145,7 @@ def load_clip(model_path=None, context_length=77,
     }
     
     # set device 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
     
     # Create CLIP model with 3D DinoV2 vision encoder
     model = CLIP(**params)
@@ -320,7 +341,7 @@ def setup_validation(config, num_workers=2):
         return None, None, None, None, None
 
 
-def make(config, ct_filepath, txt_filepath, model_path=None, num_workers=2): 
+def make(config, ct_filepath, txt_filepath, model_path=None, num_workers=2, local_rank=0, rank=0, use_ddp=False, world_size=1): 
     '''
     FUNCTION: make
     ---------------------------------
@@ -331,14 +352,19 @@ def make(config, ct_filepath, txt_filepath, model_path=None, num_workers=2):
         * ct_filepath - string, filepath to CT volumes
         * txt_filepath - string, filepath to corresponding text reports
         * model_path - string, filepath to previously trained model
+        * local_rank - int, local GPU rank for device assignment
+        * rank - int, global rank for distributed training
+        * use_ddp - bool, whether to use DistributedDataParallel
+        * world_size - int, total number of processes for distributed training
     '''
-    data_loader, device = load_data(ct_filepath, txt_filepath, batch_size=config.batch_size, column=config.column, num_workers=num_workers)
-    model = load_clip(model_path=model_path, context_length=config.context_length)
+    data_loader, device, sampler = load_data(ct_filepath, txt_filepath, batch_size=config.batch_size, column=config.column, num_workers=num_workers, local_rank=local_rank, rank=rank, use_ddp=use_ddp, world_size=world_size)
+    
+    model = load_clip(model_path=model_path, context_length=config.context_length, local_rank=local_rank)
     model.to(device)
     print('Model on Device.')
 
     # make the optimizer 
     criterion = nn.CrossEntropyLoss().to(device)
     optimizer = optim.AdamW(model.parameters(), lr=config.lr)
-    return model, data_loader, device, criterion, optimizer
+    return model, data_loader, device, criterion, optimizer, sampler
 
