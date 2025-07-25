@@ -14,7 +14,7 @@
 checkpoints/
 
 # Data directories
-data/
+# data/
 demo/*/videos/
 demo/*/grids/
 demo/*_visualizations/
