@@ -16,7 +16,7 @@ module load cuda/12.4
 
 # Load conda environment
 source /cbica/projects/CXR/miniconda3/etc/profile.d/conda.sh
-conda activate ctproject
+conda activate medgemma
 
 # Set paths
 REPO_PATH="/cbica/projects/CXR/codes/clip_3d_ct"
