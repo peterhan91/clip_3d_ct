@@ -2,7 +2,7 @@
 #SBATCH --job-name=CLIP_3D_Train_DDP
 #SBATCH --output=clip_3d_train_%j.out
 #SBATCH --error=clip_3d_train_%j.err
-#SBATCH --time=24:00:00
+#SBATCH --time=96:00:00
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=a100:2
 #SBATCH --cpus-per-gpu=8
