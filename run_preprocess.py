@@ -361,10 +361,12 @@ if __name__ == "__main__":
     # Modify output path to include dataset name if using split mode
     output_path = args.ct_out_path
     if args.split and args.dataset != 'ctrate':
-        # Add dataset prefix to output file name
+        # Add dataset prefix to output file name only if not already present
         base_name = os.path.splitext(output_path)[0]
-        extension = os.path.splitext(output_path)[1] 
-        output_path = f"{base_name}_{args.dataset}{extension}"
+        extension = os.path.splitext(output_path)[1]
+        # Check if dataset name is already in the filename
+        if args.dataset not in base_name:
+            output_path = f"{base_name}_{args.dataset}{extension}"
     
     print(f"Processing {len(ct_paths)} CT volumes...")
     print(f"Output will be saved to: {output_path}")
