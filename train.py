@@ -58,6 +58,72 @@ class CTDataset(data.Dataset):
         return sample
 
 
+class MultiCTDataset(data.Dataset):
+    """Dataset for multiple 3D CT volumes with text reports."""
+    def __init__(self, img_paths, txt_paths, columns='report', transform=None):
+        super().__init__()
+        assert len(img_paths) == len(txt_paths), "Number of image and text paths must match"
+        
+        if isinstance(columns, str):
+            columns = [columns] * len(img_paths)
+        elif isinstance(columns, list):
+            assert len(columns) == len(img_paths), f"Number of columns ({len(columns)}) must match number of datasets ({len(img_paths)})"
+        
+        self.datasets = []
+        self.cumulative_lengths = [0]
+        self.transform = transform
+        
+        for img_path, txt_path, column in zip(img_paths, txt_paths, columns):
+            img_dset = h5py.File(img_path, 'r')['ct_volumes']
+            txt_dset = pd.read_csv(txt_path)[column]
+            
+            assert len(img_dset) == len(txt_dset), f"Mismatch in {img_path} and {txt_path}: {len(img_dset)} vs {len(txt_dset)}"
+            
+            self.datasets.append((img_dset, txt_dset))
+            self.cumulative_lengths.append(self.cumulative_lengths[-1] + len(txt_dset))
+        
+        print(f"Loaded {len(self.datasets)} datasets with total {self.cumulative_lengths[-1]} samples")
+        for i, (path, length) in enumerate(zip(img_paths, [self.cumulative_lengths[i+1] - self.cumulative_lengths[i] for i in range(len(self.datasets))])):
+            print(f"  Dataset {i+1}: {length} samples from {path}")
+    
+    def __len__(self):
+        return self.cumulative_lengths[-1]
+    
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        # Bounds check
+        if idx < 0 or idx >= len(self):
+            raise IndexError(f"Index {idx} out of range [0, {len(self)-1}]")
+        
+        # Find which dataset this index belongs to
+        dataset_idx = len(self.datasets) - 1  # Default to last dataset
+        local_idx = idx
+        for i in range(len(self.cumulative_lengths) - 1):
+            if idx < self.cumulative_lengths[i + 1]:
+                dataset_idx = i
+                local_idx = idx - self.cumulative_lengths[i]
+                break
+        
+        img_dset, txt_dset = self.datasets[dataset_idx]
+        img = img_dset[local_idx]  # (D, H, W)
+        txt = txt_dset.iloc[local_idx]
+        
+        # Process image
+        img = np.expand_dims(img, axis=0)  # (1, D, H, W)
+        img = np.repeat(img, 3, axis=0)  # (3, D, H, W)
+        
+        if pd.isna(txt) or txt == "":
+            txt = " "
+        
+        img = torch.from_numpy(img).float()
+        if self.transform:
+            img = self.transform(img)
+        
+        return {'img': img, 'txt': txt}
+
+
 def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=False, num_workers=2, local_rank=0, rank=0, use_ddp=False, world_size=1): 
     if torch.cuda.is_available():  
         dev = f"cuda:{local_rank}" 
@@ -76,10 +142,27 @@ def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=
     # For 3D CT volumes, no transforms needed - data is already preprocessed
     print("Loading 3D CT dataset - no transforms applied (data already preprocessed).")
     
-    torch_dset = CTDataset(img_path=ct_filepath,
-                          txt_path=txt_filepath, 
-                          column=column, 
-                          transform=None)
+    # Check if single files or multiple files
+    if isinstance(ct_filepath, list) and isinstance(txt_filepath, list):
+        if len(ct_filepath) == 1:
+            # Single file passed as list
+            torch_dset = CTDataset(img_path=ct_filepath[0],
+                                  txt_path=txt_filepath[0], 
+                                  column=column[0] if isinstance(column, list) else column, 
+                                  transform=None)
+        else:
+            # Multiple files
+            print(f"Loading multiple datasets: {len(ct_filepath)} H5 files")
+            torch_dset = MultiCTDataset(img_paths=ct_filepath,
+                                      txt_paths=txt_filepath, 
+                                      columns=column, 
+                                      transform=None)
+    else:
+        # Backward compatibility: single files as strings
+        torch_dset = CTDataset(img_path=ct_filepath,
+                              txt_path=txt_filepath, 
+                              column=column if isinstance(column, str) else column[0], 
+                              transform=None)
     
     if verbose: 
         for i in range(len(torch_dset)):

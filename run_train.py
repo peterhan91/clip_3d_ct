@@ -14,8 +14,10 @@ from train import make, preprocess_text, setup_validation
 def parse_args():
     parser = argparse.ArgumentParser()
     # Data paths
-    parser.add_argument('--ct_filepath', type=str, default='/cbica/projects/CXR/data_p/ctrate_train.h5')
-    parser.add_argument('--txt_filepath', type=str, default='/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/train_reports.csv')
+    parser.add_argument('--ct_filepath', type=str, nargs='+', default=['/cbica/projects/CXR/data_p/ctrate_train.h5'],
+                       help='Path(s) to HDF5 file(s) containing CT volumes. Can specify multiple files.')
+    parser.add_argument('--txt_filepath', type=str, nargs='+', default=['/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/train_reports.csv'],
+                       help='Path(s) to CSV file(s) containing text reports. Must match ct_filepath order.')
     
     # Training parameters
     parser.add_argument('--batch_size', type=int, default=8)
@@ -62,7 +64,8 @@ def parse_args():
     
     # Dummy parameters for compatibility
     parser.add_argument('--pretrained', type=bool, default=False)
-    parser.add_argument('--column', type=str, default='Impressions_EN')
+    parser.add_argument('--column', type=str, nargs='+', default=['Impressions_EN'],
+                       help='Column name(s) in CSV containing text reports. Can be single name for all files or one per file.')
     
     args = parser.parse_args()
     return args
@@ -440,6 +443,10 @@ def run_final_testing(config):
 def main():
     """Main training function."""
     config = parse_args()
+    
+    # Validate matching lengths
+    if len(config.ct_filepath) != len(config.txt_filepath):
+        raise ValueError(f"Number of CT files ({len(config.ct_filepath)}) must match number of text files ({len(config.txt_filepath)})")
     
     # Setup
     torch.manual_seed(config.seed)

@@ -20,8 +20,20 @@ conda activate ctproject
 
 # Set paths
 REPO_PATH="/cbica/projects/CXR/codes/clip_3d_ct"
-TRAIN_CT_PATH="/cbica/projects/CXR/data_p/ctrate_train.h5"
-TRAIN_TXT_PATH="/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/train_reports.csv"
+
+# Training datasets - multiple H5 and CSV files
+TRAIN_CT_PATHS=(
+    "/cbica/projects/CXR/data_p/ctrate_train.h5"
+    "/cbica/projects/CXR/data_p/inspect_train.h5"
+    "/cbica/projects/CXR/data_p/merlin_train.h5"
+)
+TRAIN_TXT_PATHS=(
+    "/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/train_reports.csv"
+    "/cbica/projects/CXR/codes/clip_3d_ct/data/inspect/train_reports.csv"
+    "/cbica/projects/CXR/codes/clip_3d_ct/data/merlin/train_reports.csv"
+)
+
+# Validation and test paths (CT-RATE only for now)
 VAL_CT_PATH="/cbica/projects/CXR/data_p/ctrate_valid.h5"
 VAL_LABEL_PATH="/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/valid_predicted_labels.csv"
 TEST_CT_PATH="/cbica/projects/CXR/data_p/ctrate_test.h5"
@@ -34,12 +46,17 @@ mkdir -p $SAVE_DIR
 # Change to repository directory
 cd $REPO_PATH
 
-# Run 3D CLIP training with DDP
+# Run 3D CLIP training with DDP on multiple datasets
 echo "Starting 3D CLIP training with DDP on 2 GPUs..."
+echo "Training datasets:"
+echo "  - CT-RATE: ${TRAIN_CT_PATHS[0]}"
+echo "  - INSPECT: ${TRAIN_CT_PATHS[1]}"
+echo "  - MERLIN: ${TRAIN_CT_PATHS[2]}"
+
 torchrun --nproc_per_node=2 run_train.py \
     --use_ddp \
-    --ct_filepath "$TRAIN_CT_PATH" \
-    --txt_filepath "$TRAIN_TXT_PATH" \
+    --ct_filepath "${TRAIN_CT_PATHS[@]}" \
+    --txt_filepath "${TRAIN_TXT_PATHS[@]}" \
     --val_ct_filepath "$VAL_CT_PATH" \
     --val_label_path "$VAL_LABEL_PATH" \
     --test_ct_filepath "$TEST_CT_PATH" \
@@ -58,8 +75,8 @@ torchrun --nproc_per_node=2 run_train.py \
     --val_batch_size 2 \
     --test_batch_size 2 \
     --log_interval 10 \
-    --model_name "clip_3d_ct_v2_ddp" \
-    --column "Impressions_EN" \
+    --model_name "clip_3d_multi_dataset_v1" \
+    --column "Impressions_EN" "Impressions_EN" "Impressions_EN" \
     --seed 42 \
     --test_after_training \
     --num_workers 8
