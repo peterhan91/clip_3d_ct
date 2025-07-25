@@ -20,8 +20,8 @@ conda activate ctproject
 
 # Set paths
 REPO_PATH="/cbica/projects/CXR/codes/clip_3d_ct"
-TARGET_FILE="/cbica/projects/CXR/codes/clip_3d_ct/data/merlin/original_reports.csv"
-OUTPUT_FILE="/cbica/projects/CXR/data_p/merlin_reports_with_impressions.json"
+TARGET_FILE="/cbica/projects/CXR/codes/clip_3d_ct/data/merlin/train_reports.csv"
+OUTPUT_FILE="/cbica/projects/CXR/data_p/merlin_impressions.json"
 
 # Create output directory if it doesn't exist
 mkdir -p /cbica/projects/CXR/data_p/
