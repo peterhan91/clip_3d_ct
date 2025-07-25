@@ -16,7 +16,7 @@ conda activate ctproject
 
 # Set paths
 REPO_PATH="/cbica/projects/CXR/codes/clip_3d_ct"
-OUTPUT_PATH="/cbica/projects/CXR/data_p/merlin_combined.h5"
+OUTPUT_PATH="/cbica/projects/CXR/data_p/merlin_train.h5"
 
 # Create output directory if it doesn't exist
 mkdir -p /cbica/projects/CXR/data_p/
