@@ -1,4 +1,4 @@
-VolumeName,pe_positive,pe_acute,pe_subsegmentalonly
+VolumeName,Pulmonary embolism,Acute pulmonary embolism,Subsegmental pulmonary embolism
 PE9f5ca7.nii.gz,0,0,0
 PE4527cf7.nii.gz,1,1,0
 PE4527f1a.nii.gz,0,0,0

@@ -2,6 +2,7 @@ import os
 import argparse
 from math import pi
 from tqdm import tqdm
+import pandas as pd
 
 import torch
 import torch.optim as optim
@@ -39,6 +40,12 @@ def parse_args():
     parser.add_argument('--val_ct_filepath', type=str, default='/cbica/projects/CXR/data_p/ctrate_valid.h5')
     parser.add_argument('--val_label_path', type=str, default='/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/valid_predicted_labels.csv')
     parser.add_argument('--val_batch_size', type=int, default=4)
+    
+    # INSPECT validation arguments
+    parser.add_argument('--inspect_val_ct_filepath', type=str, default='/cbica/projects/CXR/data_p/inspect_valid.h5',
+                       help='Path to INSPECT validation HDF5 file')
+    parser.add_argument('--inspect_val_label_path', type=str, default='/cbica/projects/CXR/codes/clip_3d_ct/data/inspect/valid_pe_labels.csv',
+                       help='Path to INSPECT validation PE labels')
     
     # Test dataset arguments - for final evaluation
     parser.add_argument('--test_after_training', action='store_true', help='Test on CT-rate test set after training')
@@ -237,19 +244,110 @@ def run_validation(model, device, config, step, epoch, validation_state):
     auc_cols = [col for col in val_results_df.columns if col.endswith('_auc')]
     mean_auc = val_results_df[auc_cols].mean().mean() if auc_cols else 0
     
-    # Log validation results to CSV
-    with open(validation_state['val_log_path'], 'a') as f:
-        # Log individual AUC values for all disease labels
-        auc_cols = [col for col in val_results_df.columns if col.endswith('_auc')]
-        auc_values = [val_results_df[col].iloc[0] if col in val_results_df.columns else 0 for col in auc_cols]
-        f.write(f"{step},{epoch},{mean_auc:.4f},{','.join(f'{v:.4f}' for v in auc_values)}\n")
+    # Initialize variables for logging
+    auc_cols = [col for col in val_results_df.columns if col.endswith('_auc')]
+    auc_values = [val_results_df[col].iloc[0] if col in val_results_df.columns else 0 for col in auc_cols]
     
-    print(f"Validation at step {step}: Mean AUC = {mean_auc:.4f}")
+    print(f"Validation at step {step}: CT-RATE Mean AUC = {mean_auc:.4f}")
+    
+    # Validate on INSPECT dataset if available
+    inspect_mean_auc = 0
+    inspect_val_ct = getattr(config, 'inspect_val_ct_filepath', '/cbica/projects/CXR/data_p/inspect_valid.h5')
+    inspect_val_labels = getattr(config, 'inspect_val_label_path', '/cbica/projects/CXR/codes/clip_3d_ct/data/inspect/valid_pe_labels.csv')
+    
+    if os.path.exists(inspect_val_ct) and os.path.exists(inspect_val_labels):
+        try:
+            # Load INSPECT validation data
+            inspect_df = pd.read_csv(inspect_val_labels)
+            inspect_labels = ['Pulmonary embolism', 'Acute pulmonary embolism', 'Subsegmental pulmonary embolism']
+            y_true_inspect = inspect_df[inspect_labels].values
+            
+            # Create INSPECT validation dataset using same approach as setup_validation
+            import h5py
+            import numpy as np
+            
+            class CTValidationDataset(torch.utils.data.Dataset):
+                """Validation dataset for CT volumes only."""
+                def __init__(self, img_path, volume_names):
+                    self.img_dset = h5py.File(img_path, 'r')['ct_volumes']
+                    self.num_volumes = len(volume_names)
+                    
+                def __len__(self):
+                    return self.num_volumes
+                
+                def __getitem__(self, idx):
+                    img = self.img_dset[idx]  # (D, H, W)
+                    img = np.expand_dims(img, axis=0)  # Add channel: (1, D, H, W)
+                    img = np.repeat(img, 3, axis=0)  # Repeat for RGB: (3, D, H, W)
+                    img = torch.from_numpy(img).float()
+                    return {'img': img, 'idx': idx}
+            
+            inspect_dataset = CTValidationDataset(inspect_val_ct, inspect_df['VolumeName'].values)
+            inspect_loader = torch.utils.data.DataLoader(
+                inspect_dataset, batch_size=config.val_batch_size, shuffle=False,
+                num_workers=config.num_workers, pin_memory=True
+            )
+            
+            # Encode INSPECT text templates
+            with torch.no_grad():
+                pos_texts_inspect = [pos_template.format(c) for c in inspect_labels]
+                neg_texts_inspect = [neg_template.format(c) for c in inspect_labels]
+                pos_tokens_inspect = clip.tokenize(pos_texts_inspect, context_length).to(device)
+                neg_tokens_inspect = clip.tokenize(neg_texts_inspect, context_length).to(device)
+                pos_features_inspect = model_for_val.encode_text(pos_tokens_inspect)
+                neg_features_inspect = model_for_val.encode_text(neg_tokens_inspect)
+                pos_features_inspect /= pos_features_inspect.norm(dim=-1, keepdim=True)
+                neg_features_inspect /= neg_features_inspect.norm(dim=-1, keepdim=True)
+            
+            # Extract INSPECT image features
+            all_img_feats_inspect = []
+            with torch.no_grad():
+                for data in tqdm(inspect_loader, desc="INSPECT Validation"):
+                    imgs = data['img'].to(device)
+                    feats = model_for_val.encode_image(imgs)
+                    feats /= feats.norm(dim=-1, keepdim=True)
+                    all_img_feats_inspect.append(feats.cpu())
+            
+            # Compute INSPECT predictions
+            img_feats_inspect = torch.cat(all_img_feats_inspect).to(device)
+            logits_pos_inspect = img_feats_inspect @ pos_features_inspect.T
+            logits_neg_inspect = img_feats_inspect @ neg_features_inspect.T
+            probs_inspect = torch.exp(logits_pos_inspect) / (torch.exp(logits_pos_inspect) + torch.exp(logits_neg_inspect))
+            y_pred_inspect = probs_inspect.cpu().numpy()
+            
+            # Evaluate INSPECT
+            inspect_results = evaluate(y_pred_inspect, y_true_inspect[:len(y_pred_inspect)], inspect_labels)
+            inspect_auc_cols = [col for col in inspect_results.columns if col.endswith('_auc')]
+            inspect_mean_auc = inspect_results[inspect_auc_cols].mean().mean() if inspect_auc_cols else 0
+            print(f"INSPECT Mean AUC = {inspect_mean_auc:.4f}")
+            
+            # Prepare INSPECT AUC values for logging (ensure consistent order)
+            inspect_ordered_labels = ['Pulmonary embolism', 'Acute pulmonary embolism', 'Subsegmental pulmonary embolism']
+            inspect_auc_values = []
+            for label in inspect_ordered_labels:
+                col_name = f"{label}_auc"
+                if col_name in inspect_results.columns:
+                    inspect_auc_values.append(inspect_results[col_name].iloc[0])
+                else:
+                    inspect_auc_values.append(0)
+        except Exception as e:
+            print(f"Warning: INSPECT validation failed: {e}")
+            inspect_auc_values = [0, 0, 0]  # Default zeros for 3 PE labels
+    else:
+        inspect_auc_values = [0, 0, 0]  # Default zeros if files don't exist
+    
+    # Use average of both datasets for early stopping
+    combined_mean_auc = (mean_auc + inspect_mean_auc) / 2 if inspect_mean_auc > 0 else mean_auc
+    
+    # Log both CT-RATE and INSPECT results to CSV
+    with open(validation_state['val_log_path'], 'a') as f:
+        # Log format: Step,Epoch,CT-RATE_Mean_AUC,<all CT-RATE AUCs>,INSPECT_Mean_AUC,<all INSPECT AUCs>,Combined_Mean_AUC
+        f.write(f"{step},{epoch},{mean_auc:.4f},{','.join(f'{v:.4f}' for v in auc_values)},{inspect_mean_auc:.4f},{','.join(f'{v:.4f}' for v in inspect_auc_values)},{combined_mean_auc:.4f}\n")
     
     # Check if this is the best model so far
     early_stop_flag = False
-    if mean_auc > validation_state['best_metric'] + config.min_delta:
-        validation_state['best_metric'] = mean_auc
+    if combined_mean_auc > validation_state['best_metric'] + config.min_delta:
+        validation_state['best_metric'] = combined_mean_auc
         validation_state['best_step'] = step
         validation_state['best_epoch'] = epoch
         validation_state['intervals_without_improvement'] = 0
@@ -257,7 +355,7 @@ def run_validation(model, device, config, step, epoch, validation_state):
         # Save best model
         model_to_save = model.module if hasattr(model, 'module') else model
         save_model(model_to_save, validation_state['best_model_path'])
-        print(f"New best model saved! AUC: {mean_auc:.4f} at step {step}")
+        print(f"New best model saved! Combined AUC: {combined_mean_auc:.4f} (CT-RATE: {mean_auc:.4f}, INSPECT: {inspect_mean_auc:.4f}) at step {step}")
     else:
         validation_state['intervals_without_improvement'] += 1
         if (config.early_stopping and 
@@ -482,9 +580,11 @@ def main():
             if config.do_validate:
                 _, _, val_labels, _, _ = setup_validation(config, num_workers=config.num_workers)
                 if val_labels is not None:
-                    # Create header with all disease labels
+                    # Create header with all disease labels for CT-RATE
                     disease_headers = [f"{label}_AUC" for label in val_labels]
-                    header = "Step,Epoch,Mean_AUC," + ",".join(disease_headers) + "\n"
+                    # Add INSPECT PE labels
+                    inspect_headers = ["Pulmonary_embolism_AUC", "Acute_pulmonary_embolism_AUC", "Subsegmental_pulmonary_embolism_AUC"]
+                    header = "Step,Epoch,CT-RATE_Mean_AUC," + ",".join(disease_headers) + ",INSPECT_Mean_AUC," + ",".join(inspect_headers) + ",Combined_Mean_AUC\n"
                 else:
                     header = "Step,Epoch,Mean_AUC\n"
             else:

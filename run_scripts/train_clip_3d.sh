@@ -33,11 +33,16 @@ TRAIN_TXT_PATHS=(
     "/cbica/projects/CXR/codes/clip_3d_ct/data/merlin/train_reports.csv"
 )
 
-# Validation and test paths (CT-RATE only for now)
+# Validation and test paths (CT-RATE)
 VAL_CT_PATH="/cbica/projects/CXR/data_p/ctrate_valid.h5"
 VAL_LABEL_PATH="/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/valid_predicted_labels.csv"
 TEST_CT_PATH="/cbica/projects/CXR/data_p/ctrate_test.h5"
 TEST_LABEL_PATH="/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/test_predicted_labels.csv"
+
+# INSPECT validation paths
+INSPECT_VAL_CT_PATH="/cbica/projects/CXR/data_p/inspect_valid.h5"
+INSPECT_VAL_LABEL_PATH="/cbica/projects/CXR/codes/clip_3d_ct/data/inspect/valid_pe_labels.csv"
+
 SAVE_DIR="/cbica/projects/CXR/models/clip_3d/"
 
 # Create save directory
@@ -52,6 +57,10 @@ echo "Training datasets:"
 echo "  - CT-RATE: ${TRAIN_CT_PATHS[0]}"
 echo "  - INSPECT: ${TRAIN_CT_PATHS[1]}"
 echo "  - MERLIN: ${TRAIN_CT_PATHS[2]}"
+echo ""
+echo "Validation datasets:"
+echo "  - CT-RATE: $VAL_CT_PATH (18 pathologies)"
+echo "  - INSPECT: $INSPECT_VAL_CT_PATH (3 PE labels)"
 
 torchrun --nproc_per_node=2 run_train.py \
     --use_ddp \
@@ -59,6 +68,8 @@ torchrun --nproc_per_node=2 run_train.py \
     --txt_filepath "${TRAIN_TXT_PATHS[@]}" \
     --val_ct_filepath "$VAL_CT_PATH" \
     --val_label_path "$VAL_LABEL_PATH" \
+    --inspect_val_ct_filepath "$INSPECT_VAL_CT_PATH" \
+    --inspect_val_label_path "$INSPECT_VAL_LABEL_PATH" \
     --test_ct_filepath "$TEST_CT_PATH" \
     --test_label_path "$TEST_LABEL_PATH" \
     --save_dir "$SAVE_DIR" \
