@@ -52,7 +52,7 @@ echo "  - INSPECT: $INSPECT_TEST_CT (3 PE labels)"
 echo ""
 
 # Run testing
-python test.py \
+python run_test.py \
     --model_path "$MODEL_PATH" \
     --model_name "$MODEL_NAME" \
     --ctrate_test_ct_path "$CTRATE_TEST_CT" \
