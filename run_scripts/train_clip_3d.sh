@@ -18,6 +18,9 @@ module load cuda/12.4
 source /cbica/projects/CXR/miniconda3/etc/profile.d/conda.sh
 conda activate ctproject
 
+# Set NCCL timeout to 30 minutes to handle corruption scanning delays
+export NCCL_TIMEOUT=1800
+
 # Set paths
 REPO_PATH="/cbica/projects/CXR/codes/clip_3d_ct"
 
