@@ -70,6 +70,7 @@ torchrun --nproc_per_node=2 run_train.py \
     --val_label_path "$VAL_LABEL_PATH" \
     --inspect_val_ct_filepath "$INSPECT_VAL_CT_PATH" \
     --inspect_val_label_path "$INSPECT_VAL_LABEL_PATH" \
+    --max_inspect_samples 500 \
     --test_ct_filepath "$TEST_CT_PATH" \
     --test_label_path "$TEST_LABEL_PATH" \
     --save_dir "$SAVE_DIR" \
@@ -83,7 +84,7 @@ torchrun --nproc_per_node=2 run_train.py \
     --context_length 77 \
     --do_validate \
     --valid_interval 200 \
-    --val_batch_size 8 \
+    --val_batch_size 4 \
     --test_batch_size 2 \
     --log_interval 10 \
     --model_name "clip_3d_multi_dataset_v1" \

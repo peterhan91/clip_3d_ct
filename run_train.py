@@ -46,6 +46,8 @@ def parse_args():
                        help='Path to INSPECT validation HDF5 file')
     parser.add_argument('--inspect_val_label_path', type=str, default='/cbica/projects/CXR/codes/clip_3d_ct/data/inspect/valid_pe_labels.csv',
                        help='Path to INSPECT validation PE labels')
+    parser.add_argument('--max_inspect_samples', type=int, default=500,
+                       help='Maximum number of INSPECT validation samples to use (for faster validation)')
     
     # Test dataset arguments - for final evaluation
     parser.add_argument('--test_after_training', action='store_true', help='Test on CT-rate test set after training')
@@ -307,11 +309,16 @@ def run_validation(model, device, config, step, epoch, validation_state):
                     img = torch.from_numpy(img).float()
                     return {'img': img, 'idx': idx}  # Return dataset idx, not actual idx
             
-            inspect_dataset = CTValidationDataset(inspect_val_ct, inspect_df['VolumeName'].values)
+            # Limit INSPECT validation to specified number of CTs for faster validation
+            max_inspect_samples = config.max_inspect_samples
+            inspect_volume_names = inspect_df['VolumeName'].values[:max_inspect_samples]
+            print(f"Using first {len(inspect_volume_names)} INSPECT samples for validation (max: {max_inspect_samples})")
             
-            # Filter labels to match valid volumes only
-            y_true_inspect = inspect_df[inspect_labels].values
-            y_true_inspect_filtered = y_true_inspect[inspect_dataset.valid_indices]
+            inspect_dataset = CTValidationDataset(inspect_val_ct, inspect_volume_names)
+            
+            # Filter labels to match valid volumes only - but limit to first 500 from original CSV
+            y_true_inspect_limited = inspect_df[inspect_labels].values[:max_inspect_samples]
+            y_true_inspect_filtered = y_true_inspect_limited[inspect_dataset.valid_indices]
             
             inspect_loader = torch.utils.data.DataLoader(
                 inspect_dataset, batch_size=config.val_batch_size, shuffle=False,
