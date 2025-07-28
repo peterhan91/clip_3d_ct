@@ -79,8 +79,31 @@ class MultiCTDataset(data.Dataset):
             
             assert len(img_dset) == len(txt_dset), f"Mismatch in {img_path} and {txt_path}: {len(img_dset)} vs {len(txt_dset)}"
             
-            self.datasets.append((img_dset, txt_dset))
-            self.cumulative_lengths.append(self.cumulative_lengths[-1] + len(txt_dset))
+            # Pre-scan for corrupted volumes
+            print(f"Scanning for corrupted volumes in {img_path}...")
+            valid_indices = []
+            corrupted_count = 0
+            
+            for idx in range(len(img_dset)):
+                try:
+                    img = img_dset[idx]
+                    # Check for corrupted volumes (all zeros or other issues)
+                    if np.all(img == 0) or np.isnan(img).any() or np.isinf(img).any():
+                        print(f"Warning: Found corrupted volume at index {idx} in {img_path}, excluding from training")
+                        corrupted_count += 1
+                    else:
+                        valid_indices.append(idx)
+                except Exception as e:
+                    print(f"Warning: Error loading volume at index {idx} in {img_path}, excluding from training: {e}")
+                    corrupted_count += 1
+            
+            print(f"Dataset {img_path}: {len(valid_indices)} valid volumes, {corrupted_count} corrupted volumes excluded")
+            
+            # Filter text data to match valid volumes
+            txt_filtered = txt_dset.iloc[valid_indices].reset_index(drop=True)
+            
+            self.datasets.append((img_dset, txt_filtered, valid_indices))
+            self.cumulative_lengths.append(self.cumulative_lengths[-1] + len(valid_indices))
         
         print(f"Loaded {len(self.datasets)} datasets with total {self.cumulative_lengths[-1]} samples")
         for i, (path, length) in enumerate(zip(img_paths, [self.cumulative_lengths[i+1] - self.cumulative_lengths[i] for i in range(len(self.datasets))])):
@@ -106,8 +129,10 @@ class MultiCTDataset(data.Dataset):
                 local_idx = idx - self.cumulative_lengths[i]
                 break
         
-        img_dset, txt_dset = self.datasets[dataset_idx]
-        img = img_dset[local_idx]  # (D, H, W)
+        img_dset, txt_dset, valid_indices = self.datasets[dataset_idx]
+        # Map dataset index to actual H5 index
+        actual_idx = valid_indices[local_idx]
+        img = img_dset[actual_idx]  # (D, H, W)
         txt = txt_dset.iloc[local_idx]
         
         # Process image

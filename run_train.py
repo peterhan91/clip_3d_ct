@@ -260,7 +260,6 @@ def run_validation(model, device, config, step, epoch, validation_state):
             # Load INSPECT validation data
             inspect_df = pd.read_csv(inspect_val_labels)
             inspect_labels = ['Pulmonary embolism', 'Acute pulmonary embolism', 'Subsegmental pulmonary embolism']
-            y_true_inspect = inspect_df[inspect_labels].values
             
             # Create INSPECT validation dataset using same approach as setup_validation
             import h5py
@@ -270,19 +269,47 @@ def run_validation(model, device, config, step, epoch, validation_state):
                 """Validation dataset for CT volumes only."""
                 def __init__(self, img_path, volume_names):
                     self.img_dset = h5py.File(img_path, 'r')['ct_volumes']
-                    self.num_volumes = len(volume_names)
+                    self.volume_names = volume_names
+                    
+                    # Pre-scan for corrupted volumes and build valid indices
+                    print("Scanning for corrupted volumes in validation data...")
+                    self.valid_indices = []
+                    corrupted_count = 0
+                    
+                    for idx in range(len(volume_names)):
+                        try:
+                            img = self.img_dset[idx]
+                            # Check for corrupted volumes (all zeros or other issues)
+                            if np.all(img == 0) or np.isnan(img).any() or np.isinf(img).any():
+                                print(f"Warning: Found corrupted volume at index {idx}, excluding from validation")
+                                corrupted_count += 1
+                            else:
+                                self.valid_indices.append(idx)
+                        except Exception as e:
+                            print(f"Warning: Error loading volume at index {idx}, excluding from validation: {e}")
+                            corrupted_count += 1
+                    
+                    print(f"Validation dataset: {len(self.valid_indices)} valid volumes, {corrupted_count} corrupted volumes excluded")
                     
                 def __len__(self):
-                    return self.num_volumes
+                    return len(self.valid_indices)
                 
                 def __getitem__(self, idx):
-                    img = self.img_dset[idx]  # (D, H, W)
+                    # Map dataset index to actual H5 index
+                    actual_idx = self.valid_indices[idx]
+                    
+                    img = self.img_dset[actual_idx]  # (D, H, W)
                     img = np.expand_dims(img, axis=0)  # Add channel: (1, D, H, W)
                     img = np.repeat(img, 3, axis=0)  # Repeat for RGB: (3, D, H, W)
                     img = torch.from_numpy(img).float()
-                    return {'img': img, 'idx': idx}
+                    return {'img': img, 'idx': idx}  # Return dataset idx, not actual idx
             
             inspect_dataset = CTValidationDataset(inspect_val_ct, inspect_df['VolumeName'].values)
+            
+            # Filter labels to match valid volumes only
+            y_true_inspect = inspect_df[inspect_labels].values
+            y_true_inspect_filtered = y_true_inspect[inspect_dataset.valid_indices]
+            
             inspect_loader = torch.utils.data.DataLoader(
                 inspect_dataset, batch_size=config.val_batch_size, shuffle=False,
                 num_workers=config.num_workers, pin_memory=True
@@ -316,7 +343,7 @@ def run_validation(model, device, config, step, epoch, validation_state):
             y_pred_inspect = probs_inspect.cpu().numpy()
             
             # Evaluate INSPECT
-            inspect_results = evaluate(y_pred_inspect, y_true_inspect[:len(y_pred_inspect)], inspect_labels)
+            inspect_results = evaluate(y_pred_inspect, y_true_inspect_filtered[:len(y_pred_inspect)], inspect_labels)
             inspect_auc_cols = [col for col in inspect_results.columns if col.endswith('_auc')]
             inspect_mean_auc = inspect_results[inspect_auc_cols].mean().mean() if inspect_auc_cols else 0
             print(f"INSPECT Mean AUC = {inspect_mean_auc:.4f}")
