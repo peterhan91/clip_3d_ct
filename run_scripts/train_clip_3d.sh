@@ -91,7 +91,8 @@ torchrun --nproc_per_node=2 run_train.py \
     --column "Impressions_EN" "Impressions_EN" "Impressions_EN" \
     --seed 42 \
     --test_after_training \
-    --num_workers 8
+    --num_workers 8 \
+    --filter_corrupted
 
 echo "Training completed!"
 echo "Model saved to: $SAVE_DIR"
