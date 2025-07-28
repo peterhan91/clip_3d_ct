@@ -18,9 +18,6 @@ module load cuda/12.4
 source /cbica/projects/CXR/miniconda3/etc/profile.d/conda.sh
 conda activate ctproject
 
-# Set NCCL timeout to 30 minutes to handle corruption scanning delays
-export NCCL_TIMEOUT=1800
-
 # Set paths
 REPO_PATH="/cbica/projects/CXR/codes/clip_3d_ct"
 
@@ -86,7 +83,7 @@ torchrun --nproc_per_node=2 run_train.py \
     --context_length 77 \
     --do_validate \
     --valid_interval 200 \
-    --val_batch_size 2 \
+    --val_batch_size 8 \
     --test_batch_size 2 \
     --log_interval 10 \
     --model_name "clip_3d_multi_dataset_v1" \

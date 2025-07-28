@@ -59,6 +59,9 @@ def parse_args():
     parser.add_argument('--min_delta', type=float, default=0.001, help='Minimum change to qualify as an improvement')
     parser.add_argument('--early_stopping_metric', type=str, default='mean_auc', choices=['mean_auc', 'loss'], help='Metric to use for early stopping')
     
+    # Data filtering
+    parser.add_argument('--filter_corrupted', action='store_true', help='Enable filtering of corrupted CT volumes (all-zero, NaN, inf)')
+    
     # Logging and saving
     parser.add_argument('--save_dir', type=str, default="checkpoints/")
     parser.add_argument('--log_interval', type=int, default=10)
