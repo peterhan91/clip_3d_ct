@@ -483,6 +483,42 @@ def make(config, ct_filepath, txt_filepath, model_path=None, num_workers=2, loca
 
     # make the optimizer 
     criterion = nn.CrossEntropyLoss().to(device)
-    optimizer = optim.AdamW(model.parameters(), lr=config.lr)
+    
+    # Check if we should use parameter groups
+    use_param_groups = getattr(config, 'use_param_groups', False)
+    
+    if use_param_groups:
+        # Create parameter groups with different learning rates
+        backbone_lr = config.lr * getattr(config, 'backbone_lr_factor', 0.1)
+        backbone_wd = getattr(config, 'backbone_wd', 0.05)
+        
+        # Group 1: DinoV2 backbone (pre-trained, lower LR and weight decay)
+        backbone_params = []
+        # Group 2: All other parameters (new/scratch, standard LR and weight decay)
+        other_params = []
+        
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                if 'visual.backbone' in name:
+                    backbone_params.append(param)
+                else:
+                    other_params.append(param)
+        
+        # Create optimizer with parameter groups
+        param_groups = [
+            {'params': backbone_params, 'lr': backbone_lr, 'weight_decay': backbone_wd, 'name': 'dinov2_backbone'},
+            {'params': other_params, 'lr': config.lr, 'weight_decay': config.weight_decay, 'name': 'other'}
+        ]
+        
+        optimizer = optim.AdamW(param_groups)
+        
+        print(f'Created optimizer with parameter groups:')
+        print(f'  - DinoV2 backbone: {len(backbone_params)} params, lr={backbone_lr}, wd={backbone_wd}')
+        print(f'  - Other components: {len(other_params)} params, lr={config.lr}, wd={config.weight_decay}')
+    else:
+        # Original optimizer setup
+        optimizer = optim.AdamW(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
+        print(f'Created standard AdamW optimizer with lr={config.lr}')
+    
     return model, data_loader, device, criterion, optimizer, sampler
 
