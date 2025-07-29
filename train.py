@@ -274,20 +274,11 @@ def load_clip(model_path=None, context_length=77,
             # Reshape for slice processing: (B, 3, D, H, W) -> (B*D, 3, H, W)
             x = rearrange(x, 'b c d h w -> (b d) c h w')
             
-            # Vectorized slice-by-slice normalization to [0, 1] - all 3 channels are identical
-            x_flat = x.view(x.shape[0], -1)  # (B*D, 3*H*W)
-            slice_min = x_flat.min(dim=1, keepdim=True)[0]  # (B*D, 1)
-            slice_max = x_flat.max(dim=1, keepdim=True)[0]  # (B*D, 1)
-            # Use torch.where for cleaner vectorization:
-            range_vals = slice_max - slice_min  # (B*D, 1)
-            safe_range = torch.where(range_vals < 1e-5, torch.ones_like(range_vals), range_vals)
-            x_norm = (x_flat - slice_min) / safe_range
-            x = x_norm.view(B*D, 3, H, W)  # (B*D, 3, H, W) - use calculated dimensions
-            
-            # Apply ImageNet normalization (DINOv2 expectation)
-            imagenet_mean = torch.tensor([0.485, 0.456, 0.406], device=x.device).view(1, 3, 1, 1)
-            imagenet_std = torch.tensor([0.229, 0.224, 0.225], device=x.device).view(1, 3, 1, 1)
-            x = (x - imagenet_mean) / imagenet_std
+            # Apply normalization directly on [0, 255] values
+            # Using mean=(101.48761, 101.48761, 101.48761) and std=(83.43944, 83.43944, 83.43944)
+            ct_mean = torch.tensor([101.48761, 101.48761, 101.48761], device=x.device).view(1, 3, 1, 1)
+            ct_std = torch.tensor([83.43944, 83.43944, 83.43944], device=x.device).view(1, 3, 1, 1)
+            x = (x - ct_mean) / ct_std
             
             # Process each slice through DINOv2
             slice_features = self.backbone(x)  # (B*D, backbone_dim)
