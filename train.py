@@ -263,7 +263,6 @@ def load_clip(model_path=None, context_length=77,
                 attn_flash=True,
                 ff_no_bias=True, 
                 rotary_pos_emb=True,
-                use_adaptive_layernorm=True,
             )
             self.cls_token = nn.Parameter(torch.randn(1, 1, backbone_dim))
             self.projection = nn.Linear(backbone_dim, output_dim)
