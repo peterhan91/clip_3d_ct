@@ -22,16 +22,13 @@ conda activate ctproject
 REPO_PATH="/cbica/projects/CXR/codes/clip_3d_ct"
 
 # Model path - update this to your trained model
-MODEL_PATH="/cbica/projects/CXR/models/clip_3d/clip_3d_multi_dataset_v1/best_model.pt"
-MODEL_NAME="clip_3d_multi_dataset_v1_test"
+MODEL_PATH="/cbica/projects/CXR/models/clip_3d/clip_3d_ct_v2_ddp/best_model.pt"
+MODEL_NAME="clip_3d_ct_v2_ddp_test"
 
 # CT-RATE test paths
 CTRATE_TEST_CT="/cbica/projects/CXR/data_p/ctrate_test.h5"
 CTRATE_TEST_LABELS="/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/test_predicted_labels.csv"
 
-# INSPECT test paths
-INSPECT_TEST_CT="/cbica/projects/CXR/data_p/inspect_test.h5"
-INSPECT_TEST_LABELS="/cbica/projects/CXR/codes/clip_3d_ct/data/inspect/test_pe_labels.csv"
 
 # Results directory
 RESULTS_DIR="/cbica/projects/CXR/results/clip_3d/"
@@ -48,7 +45,6 @@ echo "Results will be saved to: $RESULTS_DIR"
 echo ""
 echo "Test datasets:"
 echo "  - CT-RATE: $CTRATE_TEST_CT (18 pathologies)"
-echo "  - INSPECT: $INSPECT_TEST_CT (3 PE labels)"
 echo ""
 
 # Run testing
@@ -57,15 +53,12 @@ python run_test.py \
     --model_name "$MODEL_NAME" \
     --ctrate_test_ct_path "$CTRATE_TEST_CT" \
     --ctrate_test_label_path "$CTRATE_TEST_LABELS" \
-    --inspect_test_ct_path "$INSPECT_TEST_CT" \
-    --inspect_test_label_path "$INSPECT_TEST_LABELS" \
     --save_dir "$RESULTS_DIR" \
     --batch_size 8 \
     --num_workers 8 \
     --context_length 77 \
     --dinov2_model_name "dinov2_vitb14" \
     --test_ctrate \
-    --test_inspect \
     --save_predictions
 
 echo ""

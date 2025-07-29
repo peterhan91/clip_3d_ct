@@ -1,10 +1,8 @@
 import os
-import sys
 import numpy as np
 import pandas as pd
 import h5py
 from einops import rearrange
-sys.path.append('../..')
 
 import torch
 from torch.utils import data
@@ -47,7 +45,7 @@ class CTDataset(data.Dataset):
         img = np.expand_dims(img, axis=0)  # Add channel dimension: (1, D, H, W)
         img = np.repeat(img, 3, axis=0)  # Repeat for RGB: (3, D, H, W)
         txt = self.txt_dset[idx]  # python str
-        if type(txt) == type(float("nan")):  # capture the case of empty sections
+        if pd.isna(txt) or txt == "":  # capture the case of empty sections
             txt = " "
 
         img = torch.from_numpy(img).float()  # torch, (3, D, H, W) - ensure float32
@@ -60,7 +58,7 @@ class CTDataset(data.Dataset):
 
 class MultiCTDataset(data.Dataset):
     """Dataset for multiple 3D CT volumes with text reports."""
-    def __init__(self, img_paths, txt_paths, columns='report', transform=None, filter_corrupted=False):
+    def __init__(self, img_paths, txt_paths, columns='report', transform=None):
         super().__init__()
         assert len(img_paths) == len(txt_paths), "Number of image and text paths must match"
         
@@ -72,7 +70,6 @@ class MultiCTDataset(data.Dataset):
         self.datasets = []
         self.cumulative_lengths = [0]
         self.transform = transform
-        self.filter_corrupted = filter_corrupted
         
         for img_path, txt_path, column in zip(img_paths, txt_paths, columns):
             img_dset = h5py.File(img_path, 'r')['ct_volumes']
@@ -80,39 +77,11 @@ class MultiCTDataset(data.Dataset):
             
             assert len(img_dset) == len(txt_dset), f"Mismatch in {img_path} and {txt_path}: {len(img_dset)} vs {len(txt_dset)}"
             
-            if self.filter_corrupted:
-                # Pre-scan for corrupted volumes with progress bar
-                from tqdm import tqdm
-                print(f"Scanning for corrupted volumes in {img_path}...")
-                valid_indices = []
-                corrupted_count = 0
-                
-                for idx in tqdm(range(len(img_dset)), desc=f"Filtering {img_path.split('/')[-1]}", unit="volumes"):
-                    try:
-                        img = img_dset[idx]
-                        # Check for corrupted volumes (all zeros or other issues)
-                        if np.all(img == 0) or np.isnan(img).any() or np.isinf(img).any():
-                            corrupted_count += 1
-                        else:
-                            valid_indices.append(idx)
-                    except Exception as e:
-                        print(f"Warning: Error loading volume at index {idx} in {img_path}, excluding from training: {e}")
-                        corrupted_count += 1
-                
-                print(f"Dataset {img_path}: {len(valid_indices)} valid volumes, {corrupted_count} corrupted volumes excluded")
-                
-                # Filter text data to match valid volumes
-                txt_filtered = txt_dset.iloc[valid_indices].reset_index(drop=True)
-                
-                self.datasets.append((img_dset, txt_filtered, valid_indices))
-                self.cumulative_lengths.append(self.cumulative_lengths[-1] + len(valid_indices))
-            else:
-                # No filtering - use all data
-                print(f"Loading dataset {img_path} without corruption filtering...")
-                valid_indices = list(range(len(img_dset)))
-                
-                self.datasets.append((img_dset, txt_dset, valid_indices))
-                self.cumulative_lengths.append(self.cumulative_lengths[-1] + len(txt_dset))
+            print(f"Loading dataset {img_path}...")
+            valid_indices = list(range(len(img_dset)))
+            
+            self.datasets.append((img_dset, txt_dset, valid_indices))
+            self.cumulative_lengths.append(self.cumulative_lengths[-1] + len(txt_dset))
         
         print(f"Loaded {len(self.datasets)} datasets with total {self.cumulative_lengths[-1]} samples")
         for i, (path, length) in enumerate(zip(img_paths, [self.cumulative_lengths[i+1] - self.cumulative_lengths[i] for i in range(len(self.datasets))])):
@@ -158,7 +127,7 @@ class MultiCTDataset(data.Dataset):
         return {'img': img, 'txt': txt}
 
 
-def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=False, num_workers=2, local_rank=0, rank=0, use_ddp=False, world_size=1, filter_corrupted=False): 
+def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=False, num_workers=2, local_rank=0, rank=0, use_ddp=False, world_size=1): 
     if torch.cuda.is_available():  
         dev = f"cuda:{local_rank}" 
         cuda_available = True
@@ -190,8 +159,7 @@ def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=
             torch_dset = MultiCTDataset(img_paths=ct_filepath,
                                       txt_paths=txt_filepath, 
                                       columns=column, 
-                                      transform=None,
-                                      filter_corrupted=filter_corrupted)
+                                      transform=None)
     else:
         # Backward compatibility: single files as strings
         torch_dset = CTDataset(img_path=ct_filepath,
@@ -475,9 +443,12 @@ def make(config, ct_filepath, txt_filepath, model_path=None, num_workers=2, loca
         * use_ddp - bool, whether to use DistributedDataParallel
         * world_size - int, total number of processes for distributed training
     '''
-    data_loader, device, sampler = load_data(ct_filepath, txt_filepath, batch_size=config.batch_size, column=config.column, num_workers=num_workers, local_rank=local_rank, rank=rank, use_ddp=use_ddp, world_size=world_size, filter_corrupted=getattr(config, 'filter_corrupted', False))
+    data_loader, device, sampler = load_data(ct_filepath, txt_filepath, batch_size=config.batch_size, column=config.column, num_workers=num_workers, local_rank=local_rank, rank=rank, use_ddp=use_ddp, world_size=world_size)
     
-    model = load_clip(model_path=model_path, context_length=config.context_length, local_rank=local_rank)
+    model = load_clip(model_path=model_path, context_length=config.context_length, 
+                      dinov2_model_name=getattr(config, 'dinov2_model_name', 'dinov2_vitb14'),
+                      freeze_dinov2=getattr(config, 'freeze_dinov2', False), 
+                      local_rank=local_rank)
     model.to(device)
     print('Model on Device.')
 
