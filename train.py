@@ -256,13 +256,14 @@ def load_clip(model_path=None, context_length=77,
             self.slice_fusion = Encoder(
                 dim=backbone_dim,
                 heads=12 if backbone_dim % 12 == 0 else 8,
-                ff_mult=1,
+                ff_mult=2,
                 attn_dropout=0.0,
                 pre_norm=True,
                 depth=2,
                 attn_flash=True,
                 ff_no_bias=True, 
                 rotary_pos_emb=True,
+                use_adaptive_layernorm=True,
             )
             self.cls_token = nn.Parameter(torch.randn(1, 1, backbone_dim))
             self.projection = nn.Linear(backbone_dim, output_dim)
