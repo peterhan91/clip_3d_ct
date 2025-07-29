@@ -165,7 +165,25 @@ def train_epoch(model, loader, device, criterion, optimizer, scheduler, scaler, 
         # Logging
         if rank == 0 and batch_ct % config.log_interval == 0:
             avg_loss = running_loss / config.log_interval
-            print(f"Step {batch_ct}, Loss: {avg_loss:.4f}, Examples: {example_ct}")
+            
+            # Ensure we're using the correct GPU device for rank 0
+            current_device = torch.cuda.current_device()
+            gpu_mem = torch.cuda.memory_allocated(current_device) / 1024**3  # GB
+            gpu_cache = torch.cuda.memory_reserved(current_device) / 1024**3  # GB
+            
+            # GPU utilization with pynvml
+            try:
+                import pynvml
+                if not hasattr(pynvml, '_initialized'):
+                    pynvml.nvmlInit()
+                    pynvml._initialized = True
+                gpu_handle = pynvml.nvmlDeviceGetHandleByIndex(current_device)
+                gpu_util = pynvml.nvmlDeviceGetUtilizationRates(gpu_handle).gpu
+            except Exception as e:
+                gpu_util = 0
+            
+            print(f"Step {batch_ct}, Loss: {avg_loss:.4f}, Examples: {example_ct}, "
+                  f"GPU{current_device}: {gpu_mem:.1f}GB/{gpu_cache:.1f}GB, Util: {gpu_util}%")
             running_loss = 0.0
         
         # Validation
