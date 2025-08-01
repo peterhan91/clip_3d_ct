@@ -80,7 +80,7 @@ torchrun --nproc_per_node=2 run_train.py \
     --val_batch_size 4 \
     --test_batch_size 2 \
     --log_interval 10 \
-    --model_name "clip_3d_ctrate_merlin_v0" \
+    --model_name "clip_3d_ctrate_merlin_v2" \
     --column "Impressions_EN" "Impressions_EN" \
     --seed 42 \
     --test_after_training \
