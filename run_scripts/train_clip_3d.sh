@@ -23,8 +23,8 @@ REPO_PATH="/cbica/projects/CXR/codes/clip_3d_ct"
 
 # Training datasets - multiple H5 and CSV files (INSPECT excluded)
 TRAIN_CT_PATHS=(
-    "/cbica/projects/CXR/data_p/ctrate_train.h5"
-    "/cbica/projects/CXR/data_p/merlin_train.h5"
+    "/cbica/projects/CXR/data_p/ctrate_train_iso_spacing.h5"
+    "/cbica/projects/CXR/data_p/merlin_train_iso_spacing.h5"
 )
 TRAIN_TXT_PATHS=(
     "/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/train_reports.csv"
@@ -32,9 +32,9 @@ TRAIN_TXT_PATHS=(
 )
 
 # Validation and test paths (CT-RATE)
-VAL_CT_PATH="/cbica/projects/CXR/data_p/ctrate_valid.h5"
+VAL_CT_PATH="/cbica/projects/CXR/data_p/ctrate_valid_iso_spacing.h5"
 VAL_LABEL_PATH="/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/valid_predicted_labels.csv"
-TEST_CT_PATH="/cbica/projects/CXR/data_p/ctrate_test.h5"
+TEST_CT_PATH="/cbica/projects/CXR/data_p/ctrate_test_iso_spacing.h5"
 TEST_LABEL_PATH="/cbica/projects/CXR/codes/clip_3d_ct/data/ct_rate/test_predicted_labels.csv"
 
 # INSPECT validation paths (excluded)
@@ -80,7 +80,7 @@ torchrun --nproc_per_node=2 run_train.py \
     --val_batch_size 4 \
     --test_batch_size 2 \
     --log_interval 10 \
-    --model_name "clip_3d_ctrate_merlin_v2" \
+    --model_name "clip_3d_ctrate_merlin_v2_iso_spacing" \
     --column "Impressions_EN" "Impressions_EN" \
     --seed 42 \
     --test_after_training \
