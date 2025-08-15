@@ -82,8 +82,11 @@ class Attention(nn.Module):
         q, k, v = qkv[0], qkv[1], qkv[2]
         
         if self.use_sdpa:
-            with torch.backends.cuda.sdp_kernel():
-                x = F.scaled_dot_product_attention(q, k, v, dropout_p=self.proj_drop.p if self.training else 0.0)
+            x = F.scaled_dot_product_attention(
+                q, k, v, 
+                dropout_p=self.attn_drop.p if self.training else 0.0,
+                scale=self.scale
+            )
         else:
             attn = (q @ k.transpose(-2, -1)) * self.scale
             attn = attn.softmax(dim=-1)
@@ -115,8 +118,7 @@ class CrossAttention(nn.Module):
         k, v = kv[0], kv[1]
         
         if self.use_sdpa:
-            with torch.backends.cuda.sdp_kernel():
-                q = F.scaled_dot_product_attention(q, k, v)
+            q = F.scaled_dot_product_attention(q, k, v, scale=self.scale)
         else:
             xattn = (q @ k.transpose(-2, -1)) * self.scale
             xattn = xattn.softmax(dim=-1)
@@ -221,7 +223,7 @@ class AttentivePooler(nn.Module):
                         norm_layer=norm_layer,
                         drop_path=drop_path,
                     )
-                    for i in range(depth - 1)
+                    for _ in range(depth - 1)
                 ]
             )
         
