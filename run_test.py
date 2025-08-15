@@ -30,6 +30,8 @@ def parse_args():
     # Model parameters
     parser.add_argument('--context_length', type=int, default=77)
     parser.add_argument('--dinov2_model_name', type=str, default='dinov2_vitb14')
+    parser.add_argument('--dino_version', type=str, default='v2', choices=['v2', 'v3'],
+                        help='Choose between DinoV2 and DinoV3')
     parser.add_argument('--freeze_dinov2', action='store_true')
     
     # Fusion method parameters
@@ -205,6 +207,7 @@ def main():
         model_path=config.model_path,
         context_length=config.context_length,
         dinov2_model_name=config.dinov2_model_name,
+        dino_version=config.dino_version,
         freeze_dinov2=config.freeze_dinov2,
         fusion_method=config.fusion_method,
         fusion_depth=config.fusion_depth

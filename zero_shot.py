@@ -63,7 +63,7 @@ class CXRTestDataset(data.Dataset):
         return sample
 
 def load_clip(model_path, pretrained=False, context_length=77, 
-              use_dinov2=False, dinov2_model_name="dinov2_vitb14", freeze_dinov2=False): 
+              use_dinov2=False, dinov2_model_name="dinov2_vitb14", dino_version="v2", freeze_dinov2=False): 
     """
     FUNCTION: load_clip
     ---------------------------------
@@ -88,8 +88,17 @@ def load_clip(model_path, pretrained=False, context_length=77,
         
         # Replace visual encoder with DinoV2 if requested
         if use_dinov2:
-            # Load DinoV2 backbone from official Facebook Research implementation
-            dinov2_backbone = torch.hub.load('facebookresearch/dinov2', dinov2_model_name, pretrained=True)
+            # Load Dino backbone based on version
+            if dino_version == "v3":
+                # Load DinoV3 from local implementation
+                dinov2_backbone = torch.hub.load('/cbica/projects/CXR/codes/dinov3', 'dinov3_vitb16', 
+                                                source='local', 
+                                                weights='/cbica/projects/CXR/codes/dinov3/checkpoints/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth')
+                print("Loading DinoV3 vitb16 model from local path")
+            else:
+                # Load DinoV2 backbone from official Facebook Research implementation
+                dinov2_backbone = torch.hub.load('facebookresearch/dinov2', dinov2_model_name, pretrained=True)
+            
             dinov2_backbone = dinov2_backbone.to(device)  # Move to correct device
             
             # Get feature dimension using a dummy forward pass

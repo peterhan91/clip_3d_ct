@@ -202,7 +202,7 @@ def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=
     
 
 def load_clip(model_path=None, context_length=77, 
-              dinov2_model_name="dinov2_vitb14", freeze_dinov2=False, local_rank=0,
+              dinov2_model_name="dinov2_vitb14", dino_version="v2", freeze_dinov2=False, local_rank=0,
               fusion_method="transformer", fusion_depth=4):
     '''
     FUNCTION: load_clip
@@ -216,6 +216,7 @@ def load_clip(model_path=None, context_length=77,
         * context_length (optional) - length of the maximum number of 
         tokens that can be inputted into the CLIP model
         * dinov2_model_name (optional) - DinoV2 model variant to use
+        * dino_version (optional) - "v2" or "v3" to choose between DinoV2 and DinoV3
         * freeze_dinov2 (optional) - if True, freeze DinoV2 backbone
         * fusion_method (optional) - "transformer" or "attentive" for slice fusion
         * fusion_depth (optional) - depth of fusion module (default: 4)
@@ -240,8 +241,17 @@ def load_clip(model_path=None, context_length=77,
     # Create CLIP model with 3D DinoV2 vision encoder
     model = CLIP(**params)
     
-    # Load DinoV2 backbone from official Facebook Research implementation
-    dinov2_backbone = torch.hub.load('facebookresearch/dinov2', dinov2_model_name+'_reg', pretrained=True)
+    # Load Dino backbone based on version
+    if dino_version == "v3":
+        # Load DinoV3 from local implementation
+        dinov2_backbone = torch.hub.load('/cbica/projects/CXR/codes/dinov3', 'dinov3_vitb16', 
+                                        source='local', 
+                                        weights='/cbica/projects/CXR/codes/dinov3/checkpoints/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth')
+        print("Loading DinoV3 vitb16 model from local path")
+    else:
+        # Load DinoV2 backbone from official Facebook Research implementation
+        dinov2_backbone = torch.hub.load('facebookresearch/dinov2', dinov2_model_name+'_reg', pretrained=True)
+    
     dinov2_backbone = dinov2_backbone.to(device)  # Move to correct device
     
     # Get feature dimension using a dummy forward pass
@@ -336,7 +346,8 @@ def load_clip(model_path=None, context_length=77,
     # Replace visual encoder with 3D version
     model.visual = DinoV2Visual3D(dinov2_backbone, backbone_dim, params['embed_dim'], 
                                    fusion_method=fusion_method, fusion_depth=fusion_depth)
-    print(f"Loaded CLIP model with 3D DinoV2 vision encoder: {dinov2_model_name}")
+    dino_name = f"DinoV3 (vitb16)" if dino_version == "v3" else f"DinoV2 ({dinov2_model_name})"
+    print(f"Loaded CLIP model with 3D {dino_name} vision encoder")
     if fusion_method == "transformer":
         print(f"Using x_transformers with flash attention and rotary embeddings (depth={fusion_depth})")
     elif fusion_method == "attentive":
@@ -477,6 +488,7 @@ def make(config, ct_filepath, txt_filepath, model_path=None, num_workers=2, loca
     
     model = load_clip(model_path=model_path, context_length=config.context_length, 
                       dinov2_model_name=getattr(config, 'dinov2_model_name', 'dinov2_vitb14'),
+                      dino_version=getattr(config, 'dino_version', 'v2'),
                       freeze_dinov2=getattr(config, 'freeze_dinov2', False), 
                       local_rank=local_rank,
                       fusion_method=getattr(config, 'fusion_method', 'transformer'),
