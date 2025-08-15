@@ -74,8 +74,8 @@ torchrun --nproc_per_node=2 run_train.py \
     --warmup_steps 500 \
     --grad_accum_steps 32 \
     --dinov2_model_name "dinov2_vitb14" \
-    --dino_version "v3" \
-    --fusion_method "transformer" \
+    --dino_version "v2" \
+    --fusion_method "attentive" \
     --fusion_depth 4 \
     --context_length 77 \
     --do_validate \
@@ -83,7 +83,7 @@ torchrun --nproc_per_node=2 run_train.py \
     --val_batch_size 4 \
     --test_batch_size 2 \
     --log_interval 10 \
-    --model_name "clip_3d_ctrate_merlin_dinov3_transformer" \
+    --model_name "clip_3d_ctrate_merlin_dinov2_attentive" \
     --column "Impressions_EN" "Impressions_EN" \
     --seed 42 \
     --test_after_training \
