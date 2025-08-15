@@ -32,6 +32,13 @@ def parse_args():
     parser.add_argument('--dinov2_model_name', type=str, default='dinov2_vitb14')
     parser.add_argument('--freeze_dinov2', action='store_true')
     
+    # Fusion method parameters
+    parser.add_argument('--fusion_method', type=str, default='transformer', 
+                       choices=['transformer', 'attentive'],
+                       help='Slice fusion method: transformer (x_transformers) or attentive (VJEPA-style)')
+    parser.add_argument('--fusion_depth', type=int, default=4,
+                       help='Depth of the fusion module (number of layers)')
+    
     # CT-RATE test paths
     parser.add_argument('--ctrate_test_ct_path', type=str, 
                        default='/cbica/projects/CXR/data_p/ctrate_test.h5',
@@ -198,7 +205,9 @@ def main():
         model_path=config.model_path,
         context_length=config.context_length,
         dinov2_model_name=config.dinov2_model_name,
-        freeze_dinov2=config.freeze_dinov2
+        freeze_dinov2=config.freeze_dinov2,
+        fusion_method=config.fusion_method,
+        fusion_depth=config.fusion_depth
     )
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

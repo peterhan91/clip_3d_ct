@@ -12,6 +12,7 @@ from x_transformers import Encoder
 
 from model import CLIP
 from simple_tokenizer import SimpleTokenizer
+from attentive_pooler import AttentivePooler
 
 
 class CTDataset(data.Dataset):
@@ -201,7 +202,8 @@ def load_data(ct_filepath, txt_filepath, batch_size=4, column='report', verbose=
     
 
 def load_clip(model_path=None, context_length=77, 
-              dinov2_model_name="dinov2_vitb14", freeze_dinov2=False, local_rank=0):
+              dinov2_model_name="dinov2_vitb14", freeze_dinov2=False, local_rank=0,
+              fusion_method="transformer", fusion_depth=4):
     '''
     FUNCTION: load_clip
     -------------------------------
@@ -215,6 +217,8 @@ def load_clip(model_path=None, context_length=77,
         tokens that can be inputted into the CLIP model
         * dinov2_model_name (optional) - DinoV2 model variant to use
         * freeze_dinov2 (optional) - if True, freeze DinoV2 backbone
+        * fusion_method (optional) - "transformer" or "attentive" for slice fusion
+        * fusion_depth (optional) - depth of fusion module (default: 4)
     '''
 
     params = {
@@ -248,23 +252,40 @@ def load_clip(model_path=None, context_length=77,
     
     # 3D version with slice fusion
     class DinoV2Visual3D(nn.Module):
-        def __init__(self, backbone, backbone_dim, output_dim):
+        def __init__(self, backbone, backbone_dim, output_dim, fusion_method="transformer", fusion_depth=4):
             super().__init__()
             self.backbone = backbone
+            self.fusion_method = fusion_method
             
-            # Advanced transformer for slice fusion
-            self.slice_fusion = Encoder(
-                dim=backbone_dim,
-                heads=12 if backbone_dim % 12 == 0 else 8,
-                ff_mult=4,
-                attn_dropout=0.0,
-                pre_norm=True,
-                depth=4,
-                attn_flash=True,
-                ff_no_bias=True, 
-                rotary_pos_emb=True,
-            )
-            self.cls_token = nn.Parameter(torch.randn(1, 1, backbone_dim))
+            if fusion_method == "transformer":
+                # Advanced transformer for slice fusion
+                self.slice_fusion = Encoder(
+                    dim=backbone_dim,
+                    heads=12 if backbone_dim % 12 == 0 else 8,
+                    ff_mult=4,
+                    attn_dropout=0.0,
+                    pre_norm=True,
+                    depth=fusion_depth,
+                    attn_flash=True,
+                    ff_no_bias=True, 
+                    rotary_pos_emb=True,
+                )
+                self.cls_token = nn.Parameter(torch.randn(1, 1, backbone_dim))
+            elif fusion_method == "attentive":
+                # Attentive pooler for slice fusion
+                self.slice_fusion = AttentivePooler(
+                    num_queries=1,
+                    embed_dim=backbone_dim,
+                    num_heads=12 if backbone_dim % 12 == 0 else 8,
+                    mlp_ratio=4.0,
+                    depth=fusion_depth,
+                    qkv_bias=True,
+                    complete_block=True,
+                    use_activation_checkpointing=False,
+                )
+            else:
+                raise ValueError(f"Unknown fusion method: {fusion_method}")
+            
             self.projection = nn.Linear(backbone_dim, output_dim)
             
         def forward(self, x):  # x: (B, 3, D, H, W) - CT volumes
@@ -292,13 +313,18 @@ def load_clip(model_path=None, context_length=77,
             slice_features = self.backbone(x)  # (B*D, backbone_dim)
             slice_features = rearrange(slice_features, '(b d) e -> b d e', b=B)  # (B, D, backbone_dim)
             
-            # Add CLS token and apply transformer fusion
-            cls_tokens = self.cls_token.expand(B, -1, -1)  # (B, 1, backbone_dim)
-            tokens = torch.cat([slice_features, cls_tokens], dim=1)  # (B, D+1, backbone_dim)
-            
-            # Transformer fusion with x_transformers
-            fused = self.slice_fusion(tokens)  # (B, D+1, backbone_dim)
-            volume_features = fused[:, -1]  # Use CLS token: (B, backbone_dim)
+            if self.fusion_method == "transformer":
+                # Add CLS token and apply transformer fusion
+                cls_tokens = self.cls_token.expand(B, -1, -1)  # (B, 1, backbone_dim)
+                tokens = torch.cat([slice_features, cls_tokens], dim=1)  # (B, D+1, backbone_dim)
+                
+                # Transformer fusion with x_transformers
+                fused = self.slice_fusion(tokens)  # (B, D+1, backbone_dim)
+                volume_features = fused[:, -1]  # Use CLS token: (B, backbone_dim)
+            elif self.fusion_method == "attentive":
+                # Attentive pooling over slice features
+                pooled = self.slice_fusion(slice_features)  # (B, 1, backbone_dim)
+                volume_features = pooled.squeeze(1)  # (B, backbone_dim)
             
             return self.projection(volume_features)
         
@@ -308,9 +334,13 @@ def load_clip(model_path=None, context_length=77,
             return self.projection
 
     # Replace visual encoder with 3D version
-    model.visual = DinoV2Visual3D(dinov2_backbone, backbone_dim, params['embed_dim'])
+    model.visual = DinoV2Visual3D(dinov2_backbone, backbone_dim, params['embed_dim'], 
+                                   fusion_method=fusion_method, fusion_depth=fusion_depth)
     print(f"Loaded CLIP model with 3D DinoV2 vision encoder: {dinov2_model_name}")
-    print("Using x_transformers with flash attention and rotary embeddings")
+    if fusion_method == "transformer":
+        print(f"Using x_transformers with flash attention and rotary embeddings (depth={fusion_depth})")
+    elif fusion_method == "attentive":
+        print(f"Using attentive pooler for slice fusion (depth={fusion_depth})")
     
     # Freeze backbone if requested
     if freeze_dinov2:
@@ -448,7 +478,9 @@ def make(config, ct_filepath, txt_filepath, model_path=None, num_workers=2, loca
     model = load_clip(model_path=model_path, context_length=config.context_length, 
                       dinov2_model_name=getattr(config, 'dinov2_model_name', 'dinov2_vitb14'),
                       freeze_dinov2=getattr(config, 'freeze_dinov2', False), 
-                      local_rank=local_rank)
+                      local_rank=local_rank,
+                      fusion_method=getattr(config, 'fusion_method', 'transformer'),
+                      fusion_depth=getattr(config, 'fusion_depth', 4))
     model.to(device)
     print('Model on Device.')
 

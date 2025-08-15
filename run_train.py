@@ -41,6 +41,13 @@ def parse_args():
     parser.add_argument('--freeze_dinov2', action='store_true')
     parser.add_argument('--model_name', type=str, default="ct-clip-v1.0")
     
+    # Fusion method parameters
+    parser.add_argument('--fusion_method', type=str, default='transformer', 
+                       choices=['transformer', 'attentive'],
+                       help='Slice fusion method: transformer (x_transformers) or attentive (VJEPA-style)')
+    parser.add_argument('--fusion_depth', type=int, default=4,
+                       help='Depth of the fusion module (number of layers)')
+    
     # Validation
     parser.add_argument('--do_validate', action='store_true')
     parser.add_argument('--valid_interval', type=int, default=400)
