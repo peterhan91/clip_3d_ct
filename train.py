@@ -244,10 +244,18 @@ def load_clip(model_path=None, context_length=77,
     # Load Dino backbone based on version
     if dino_version == "v3":
         # Load DinoV3 from local implementation
-        dinov2_backbone = torch.hub.load('/cbica/projects/CXR/codes/dinov3', 'dinov3_vitb16', 
-                                        source='local', 
-                                        weights='/cbica/projects/CXR/codes/dinov3/checkpoints/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth')
-        print("Loading DinoV3 vitb16 model from local path")
+        if "vitl" in dinov2_model_name.lower():
+            # Load DinoV3 VIT-L model
+            dinov2_backbone = torch.hub.load('/cbica/projects/CXR/codes/dinov3', 'dinov3_vitl16', 
+                                            source='local', 
+                                            weights='/cbica/projects/CXR/codes/dinov3/checkpoints/dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.pth')
+            print("Loading DinoV3 vitl16 model from local path")
+        else:
+            # Load DinoV3 VIT-B model (default)
+            dinov2_backbone = torch.hub.load('/cbica/projects/CXR/codes/dinov3', 'dinov3_vitb16', 
+                                            source='local', 
+                                            weights='/cbica/projects/CXR/codes/dinov3/checkpoints/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth')
+            print("Loading DinoV3 vitb16 model from local path")
     else:
         # Load DinoV2 backbone from official Facebook Research implementation
         dinov2_backbone = torch.hub.load('facebookresearch/dinov2', dinov2_model_name+'_reg', pretrained=True)
@@ -346,7 +354,11 @@ def load_clip(model_path=None, context_length=77,
     # Replace visual encoder with 3D version
     model.visual = DinoV2Visual3D(dinov2_backbone, backbone_dim, params['embed_dim'], 
                                    fusion_method=fusion_method, fusion_depth=fusion_depth)
-    dino_name = f"DinoV3 (vitb16)" if dino_version == "v3" else f"DinoV2 ({dinov2_model_name})"
+    if dino_version == "v3":
+        model_variant = "vitl16" if "vitl" in dinov2_model_name.lower() else "vitb16"
+        dino_name = f"DinoV3 ({model_variant})"
+    else:
+        dino_name = f"DinoV2 ({dinov2_model_name})"
     print(f"Loaded CLIP model with 3D {dino_name} vision encoder")
     if fusion_method == "transformer":
         print(f"Using x_transformers with flash attention and rotary embeddings (depth={fusion_depth})")

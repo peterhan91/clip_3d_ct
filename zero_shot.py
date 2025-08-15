@@ -91,10 +91,18 @@ def load_clip(model_path, pretrained=False, context_length=77,
             # Load Dino backbone based on version
             if dino_version == "v3":
                 # Load DinoV3 from local implementation
-                dinov2_backbone = torch.hub.load('/cbica/projects/CXR/codes/dinov3', 'dinov3_vitb16', 
-                                                source='local', 
-                                                weights='/cbica/projects/CXR/codes/dinov3/checkpoints/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth')
-                print("Loading DinoV3 vitb16 model from local path")
+                if "vitl" in dinov2_model_name.lower():
+                    # Load DinoV3 VIT-L model
+                    dinov2_backbone = torch.hub.load('/cbica/projects/CXR/codes/dinov3', 'dinov3_vitl16', 
+                                                    source='local', 
+                                                    weights='/cbica/projects/CXR/codes/dinov3/checkpoints/dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.pth')
+                    print("Loading DinoV3 vitl16 model from local path")
+                else:
+                    # Load DinoV3 VIT-B model (default)
+                    dinov2_backbone = torch.hub.load('/cbica/projects/CXR/codes/dinov3', 'dinov3_vitb16', 
+                                                    source='local', 
+                                                    weights='/cbica/projects/CXR/codes/dinov3/checkpoints/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth')
+                    print("Loading DinoV3 vitb16 model from local path")
             else:
                 # Load DinoV2 backbone from official Facebook Research implementation
                 dinov2_backbone = torch.hub.load('facebookresearch/dinov2', dinov2_model_name, pretrained=True)

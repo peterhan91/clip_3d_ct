@@ -67,15 +67,15 @@ torchrun --nproc_per_node=2 run_train.py \
     --test_ct_filepath "$TEST_CT_PATH" \
     --test_label_path "$TEST_LABEL_PATH" \
     --save_dir "$SAVE_DIR" \
-    --batch_size 4 \
+    --batch_size 1 \
     --epochs 40 \
     --lr 1e-4 \
     --weight_decay 0.2 \
     --warmup_steps 500 \
-    --grad_accum_steps 32 \
-    --dinov2_model_name "dinov2_vitb14" \
-    --dino_version "v2" \
-    --fusion_method "attentive" \
+    --grad_accum_steps 128 \
+    --dinov2_model_name "dinov2_vitl14" \
+    --dino_version "v3" \
+    --fusion_method "transformer" \
     --fusion_depth 4 \
     --context_length 77 \
     --do_validate \
@@ -83,7 +83,7 @@ torchrun --nproc_per_node=2 run_train.py \
     --val_batch_size 4 \
     --test_batch_size 2 \
     --log_interval 10 \
-    --model_name "clip_3d_ctrate_merlin_dinov2_attentive" \
+    --model_name "clip_3d_ctrate_merlin_dinov3_vitl_transformer" \
     --column "Impressions_EN" "Impressions_EN" \
     --seed 42 \
     --test_after_training \
