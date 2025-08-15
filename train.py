@@ -294,7 +294,7 @@ def load_clip(model_path=None, context_length=77,
                 self.slice_fusion = AttentivePooler(
                     num_queries=1,
                     embed_dim=backbone_dim,
-                    num_heads=12 if backbone_dim % 12 == 0 else 8,
+                    num_heads=16 if backbone_dim % 16 == 0 else 12,
                     mlp_ratio=4.0,
                     depth=fusion_depth,
                     qkv_bias=True,
